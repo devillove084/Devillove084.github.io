@@ -1,0 +1,658 @@
+
+<!DOCTYPE html>
+<html lang="en" class="loading">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title> - Coding</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="google" content="notranslate" />
+    <meta name="keywords" content="TriDiamond Obsidian,"> 
+    <meta name="description" content="This is for my own.,Paxos的目标就是维持各个服务器副本相同，进而实现分布式一致性。保持各个服务器上副本的一致性，就是复制状态机，即所有的服务器会以相同的顺序执行客户端输入的指令。
+
+客户端将新的指令(add, jm,"> 
+    <meta name="author" content="Huanbing Lu"> 
+    <link rel="alternative" href="atom.xml" title="Coding" type="application/atom+xml"> 
+    <link rel="icon" href="/img/favicon.png"> 
+    
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1429596_nzgqgvnmkjb.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.7.2/animate.min.css">
+
+    
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/css/share.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/codemirror.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/theme/dracula.css">
+
+    
+<link rel="stylesheet" href="/css/obsidian.css">
+
+    
+<link rel="stylesheet" href="/css/ball-atom.min.css">
+
+    
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+
+<body class="loading">
+    <div class="loader">
+        <div class="la-ball-atom la-2x">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+    <span id="config-title" style="display:none">Coding</span>
+    <div id="loader"></div>
+    <div id="single">
+    <div class="scrollbar gradient-bg-rev"></div>
+<div id="top" style="display: block;">
+    <div class="bar" style="width: 0;"></div>
+    <div class="navigation animated fadeIn fast delay-1s">
+        <img id="home-icon" class="icon-home" src="/img/favicon.png" alt="" data-url="http://example.com">
+        <div id="play-icon" title="Play/Pause" class="iconfont icon-play"></div>
+        <h3 class="subtitle"></h3>
+        <div class="social">
+            <!--        <div class="like-icon">-->
+            <!--            <a href="javascript:;" class="likeThis active"><span class="icon-like"></span><span class="count">76</span></a>-->
+            <!--        </div>-->
+            <div>
+                <div class="share">
+                    
+                        <a href="javascript:;" class="iconfont icon-share1"></a>
+                        <div class="share-component-cc" data-disabled="facebook,douban,linkedin,diandian,tencent,google"></div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="section">
+        <div class=article-header-wrapper>
+    <div class="article-header">
+        <div class="article-cover animated fadeIn" style="
+            animation-delay: 600ms;
+            animation-duration: 1.2s;
+            background-image: 
+                radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.65), #100e17),
+                url(/img/cover.jpg) ">
+        </div>
+        <div class="else">
+            <p class="animated fadeInDown">
+                
+                <a href="javascript:;"><b>「 </b>Article<b> 」</b></a>
+                
+                May 20, 2021
+            </p>
+            <h3 class="post-title animated fadeInDown"><a href="/2021/05/20/Multi-Raft/" title="Untitled" class="">Untitled</a>
+            </h3>
+            
+            <p class="post-count animated fadeInDown">
+                
+                <span>
+                    <b class="iconfont icon-text2"></b> <i>Words count</i>
+                    16k
+                </span>
+                
+                
+                <span>
+                    <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
+                    15 mins.
+                </span>
+                
+                
+                
+                <span id="busuanzi_container_page_pv">
+                    <b class="iconfont icon-read"></b> <i>Read count</i>
+                    <span id="busuanzi_value_page_pv">0</span>
+                </span>
+                
+            </p>
+            
+            
+        </div>
+    </div>
+</div>
+
+<div class="screen-gradient-after">
+    <div class="screen-gradient-content">
+        <div class="screen-gradient-content-inside">
+            <div class="bold-underline-links screen-gradient-sponsor">
+                <p>
+                    <span class="animated fadeIn delay-1s"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="article">
+    <div class='main'>
+        <div class="content markdown animated fadeIn">
+            <p>Paxos的目标就是维持各个服务器副本相同，进而实现分布式一致性。保持各个服务器上副本的一致性，就是复制状态机，即所有的服务器会以相同的顺序执行客户端输入的指令。</p>
+<ol>
+<li>客户端将新的指令(add, jmp, mov…)发送给一个服务器</li>
+<li>服务器使用Paxos算法选择一条日志记录指令</li>
+<li>服务器等待这个日志被复制到剩余的服务器中，然后执行日志中的状态机指令</li>
+<li>服务器将状态机的输出返回给客户端</li>
+</ol>
+<h1 id="Basic-Paxos"><a href="#Basic-Paxos" class="headerlink" title="Basic Paxos"></a>Basic Paxos</h1><p>Paxos算法是以议会通过提案的流程来阐述的，所以Paxos论文中使用提案来表示需要达成共识的内容。提案中包括一个提案编号和提案的内容，提案编号是不重复的且递增，提案内容就是当前服务器的状态机指令，比如：”把服务器的X加一”可能就是一条”INCR X”指令。</p>
+<p>Paxos论文把”提出提案-&gt;通过提案-&gt;应用提案”整个过程称为一个实例，提案编号为n，提案内容为v，那么就说”n号实例选中了v”。分布式系统常使用日志来记录执行的指令，各个服务器通过保持日志的一致性来实现复制状态机模型，状态机的输入就是一条条日志，客户端输入的指令v作为日志条目保存下来，所以也称为”n号日志选中了v”。</p>
+<h2 id="三种角色"><a href="#三种角色" class="headerlink" title="三种角色"></a>三种角色</h2><p>Paxos论文中提到了三种角色：proposer、acceptor和learner，分布式系统的进程至少扮演一个角色。</p>
+<ul>
+<li>proposer：提出一个提案，存在不止一个proposer</li>
+<li>acceptor：接受或者忽略一个proposer的提案，如果一个提案被大多数的acceptor接受，这个提案就被通过</li>
+<li>learner：学习已经通过的提案</li>
+</ul>
+<p>在多副本状态机中，每个副本同时具有proposer、acceptor和learner三种角色，这意味着任何一个服务器副本都能够提出提案，接受其他副本的提案，以及学习通过的提案。</p>
+<h2 id="Paxos提案过程"><a href="#Paxos提案过程" class="headerlink" title="Paxos提案过程"></a>Paxos提案过程</h2><p>Paxos算法把通过提案分成两个阶段：prepare阶段和accept阶段，另外还有一个learn阶段。</p>
+<h3 id="第一阶段：称为prepare阶段。"><a href="#第一阶段：称为prepare阶段。" class="headerlink" title="第一阶段：称为prepare阶段。"></a>第一阶段：称为prepare阶段。</h3><p>第一条消息：proposer发给所有acceptor。proposer选取一个没有用过的编号n，附带在prepare请求中发送给所有的acceptor，记为prepare(n)</p>
+<p>第二条消息：acceptor发给proposer。acceptor从prepare请求中取出编号n，返回自己已经接受的提案中n以下的最大编号提案，如果没有就返回空。同时，acceptor会承诺：(1)不再接收编号小于等于n的prepare请求；(2)不再接受编号小于n的propose请求。</p>
+<h3 id="第二阶段：称为propose阶段。"><a href="#第二阶段：称为propose阶段。" class="headerlink" title="第二阶段：称为propose阶段。"></a>第二阶段：称为propose阶段。</h3><p>第三条消息：proposer发给所有acceptor。proposer将所有prepare请求的回复中，取出编号最大的提案。如果这样的提案存在，就把其内容作为编号为n的新提案内容发送给所有的acceptor；如果提案不存在，proposer就可以设置新的提案内容，(一般为客户端传输的新指令)，然后发送给所有的acceptor。记为propose(n,v)<br>第四条消息：acceptor发给proposer。如果acceptor没有接受过编号大于等于n的提案，就接受这个新的提案，返回一个”OK”，同时持久化这个提案编号和提案内容。</p>
+<h3 id="第三阶段：称为learn阶段。"><a href="#第三阶段：称为learn阶段。" class="headerlink" title="第三阶段：称为learn阶段。"></a>第三阶段：称为learn阶段。</h3><p>第五条消息：proposer发给所有learner。如果proposer收到大多数acceptor的”OK”回复，说明提案通过了，否则回到第一阶段。proposer将通过的提案作为消息发送给所有的learner，让learner学习提案中的内容。</p>
+<p>在使用Paxos算法实现日志复制的时候，每个Paxos服务器同时扮演这三个角色。</p>
+<h2 id="实现算法时产生的问题"><a href="#实现算法时产生的问题" class="headerlink" title="实现算法时产生的问题"></a>实现算法时产生的问题</h2><h3 id="单个acceptor"><a href="#单个acceptor" class="headerlink" title="单个acceptor"></a>单个acceptor</h3><p>为了使得客户端输入的一系列指令在Paxos服务器中的执行顺序都是一样的，可以使用单个acceptor，这样每个指令只有通过唯一的acceptor接受之后才执行。</p>
+<p>但是，单个acceptor宕机之后，整个服务就不可用了。解决方法是：使用奇数多个acceptor；如果提案被大多数的acceptor接受就通过；如果一个acceptor宕机了，之前选中的提案内容也还是可用的。</p>
+<h3 id="分散投票"><a href="#分散投票" class="headerlink" title="分散投票"></a>分散投票</h3><p>首先是P1法则：acceptor必须接受它收到的第一个提案</p>
+<p>分散投票就是同时有多个proposer提出提案，而有多个acceptor之前都没有收到过提案，所以这些proposer被这些acceptor接受了，只不过是一个acceptor接受一个提案。这样的话，没有提案占大多数，也就没有提案被通过。</p>
+<p>这些proposer就会再进行一轮提案。这样的情况会降低Paxos的效率。Paxos论文中通过设置提案编号以及让acceptor接受多个提案解决的。</p>
+<h3 id="选择冲突"><a href="#选择冲突" class="headerlink" title="选择冲突"></a>选择冲突</h3><p>已知在一次流程中，acceptor可以接受多个提案。</p>
+<p>那么在下面的流程中，两次accept请求使用相同的提案编号n：</p>
+<ul>
+<li>S1向S2、S3发出accept(red)请求</li>
+<li>S2、S3作为acceptor会接受这个请求，那么red提案就通过了。S2、S3也学习到提案的内容：red</li>
+<li>在S2、S3学习提案red的时候，S5也提出一个新提案blue，记作accept(blue)</li>
+<li>S3、S4会通过提案blue并学习提案</li>
+<li>现在所有的acceptor中，编号为n的提案并不完全相同：red和blue。</li>
+</ul>
+<p>如何解决选择的提案内容冲突呢，就是要保证同一个流程中的多个被通过的提案内容是一样的。</p>
+<p>而上述的两个accept请求可以放在两个流程中进行。假设red提案编号的n，那么blue的提案编号就是n+1，这样就不会出现冲突现象，不过可能导致活锁。</p>
+<h3 id="活锁现象"><a href="#活锁现象" class="headerlink" title="活锁现象"></a>活锁现象</h3><p>如下过程会产生活锁现象：</p>
+<ol>
+<li>S1提出编号为3.1的提案并执行完prepare阶段</li>
+<li>S5提出编号为3.5的提案并执行完prepare阶段，S3作为acceptor不会再接受小于3.5的accept请求</li>
+<li>S1发给S3的accept请求被忽略了，所以提案3.1没有通过</li>
+<li>S1选择编号4.1提出新提案，并执行prepare阶段，S3收到之后就不会再接受低于4.1的accept请求</li>
+<li>S5的accept 3.5的请求也就失败了，S5选择一个新的提案编号并执行新的prepare阶段</li>
+</ol>
+<p>至此，没有提案被通过，但是服务器的资源一直被消耗，这就是活锁。</p>
+<p>为了防止活锁，必须选出一个且只能有一个proposer来发布提案。如果这个proposer可以和大多数acceptor通信，而且使用的提案编号比之前通过的提案编号都大，那么这个提案通过。如果proposer发现有更高编号的proposer，它会放弃现在的提案，然后提出更高编号的提案。这个proposer就称为leader，这也是Multi-Paxos使用的方法。</p>
+<h3 id="提案编号"><a href="#提案编号" class="headerlink" title="提案编号"></a>提案编号</h3><p>每个提案的编号都是独一无二的。编号高的提案的优先级要比编号低的提案的优先级高。proposer在提出新提案时，他必须选择一个比之前提案都高的编号。每个服务器都保存它看到过的最大轮次数，一个新的提案编号就是将最大轮次数自增，然后和服务器的ID连接。</p>
+<h1 id="Multi-Paxos"><a href="#Multi-Paxos" class="headerlink" title="Multi-Paxos"></a>Multi-Paxos</h1><p>在Multi-Paxos中，每一条日志都是Basic Paxos中的一个实例。在每个prepare和accept请求中都增加一个索引，用来选择特定的日志条目，所有的服务器日志里的每条日志都是独立的状态。</p>
+<h2 id="日志内容选择"><a href="#日志内容选择" class="headerlink" title="日志内容选择"></a>日志内容选择</h2><p>当新的客户端指令发送到服务器时：</p>
+<ol>
+<li>寻找第一条没有被选中的日志(该日志中没有提案或者提案还没有通过)</li>
+<li>执行Paxos算法以该条目索引为编号提出提案</li>
+<li>之后通过的提案内容就是该条目日志选择的内容，如果：</li>
+<li>选择了服务器中存在的指令，即该提案编号以下的最大未通过提案指令，就从步骤一重新开始，否则就选择该客户端的请求指令</li>
+</ol>
+<h2 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h2><p>Basic Paxos效率很低，因为：</p>
+<p>同时存在多个proposer，存在提案内容冲突等情况<br>通过一个提案需要两个来回的rpc调用(prepare阶段和accept阶段)<br>解决方案：</p>
+<ul>
+<li>选举leader：无论任何时候，只有一个服务器是proposer</li>
+<li>压缩prepare过程的rpc：一次让所有的日志执行prepare阶段(并不是一条日志执行一次)，大部分的日志条目在一个来回的rpc调用中就可以确定</li>
+</ul>
+<h3 id="leader选举"><a href="#leader选举" class="headerlink" title="leader选举"></a>leader选举</h3><p>每个服务器一个ID，让ID最大的服务器当leader<br>服务器之间通过T ms的心跳来维持联系<br>如果2T ms时间后，服务器A没有收到比他ID更高的服务器的心跳信息，它就可以当leader。任务是响应客户端的请求，扮演proposer、acceptor和learner的角色<br>如果服务器不是leader，它会将客户端的请求忽略掉或者重定向给leader；同时它只是acceptor和learner。</p>
+<h3 id="压缩prepare请求"><a href="#压缩prepare请求" class="headerlink" title="压缩prepare请求"></a>压缩prepare请求</h3><p>压缩prepare请求可以减少rpc调用的次数。</p>
+<p>prepare阶段的作用：</p>
+<p>阻止之前的提案，通过改变提案编号的含义来解决这个问题。提议编号被全局化，表示所有的日志，而不是为每个日志记录都保留独立的提案编号。这样的话就只需要一次prepare请求就可以prepare所有的日志了。<br>获得acceptor保存的可能被选中的提案内容。对当前的preapre(n)中的提案编号，acceptor会返回其收到过的n以下最大编号的提案。其次，acceptor还会检查n以后的日志，如果之后的日志都没有通过任何提案，说明之后的日志都是空的，即可用的，acceptor就会在回复prepare(n)时携带一个noMoreAccepted。<br>如果使用了选举leader的机制，最终leader会收到大部分acceptor返回的noMoreAccepted。这表示这些acceptor在n号日志之后的内容都是空的，leader不需要再发送多余的prepare请求了。</p>
+<h2 id="日志全复制"><a href="#日志全复制" class="headerlink" title="日志全复制"></a>日志全复制</h2><p>在Basic Paxos中，日志并没有完整的复制到所有的服务器：</p>
+<p>只有大多数的服务器中有通过的日志<br>当日志被选中时，只有proposer知道<br>解决方案：</p>
+<ol>
+<li>proposer在后台一直重发accept请求，直到所有的acceptor都回应。大部分的日志可以完全复制</li>
+<li>记录选中的日志使用已知被选中的日志i，并记录acceptedProposal[i]=∞每个服务器都维持一个firstUnchosenIndex：没有被选中的最早的日志索引</li>
+<li>proposer告诉acceptor哪些日志被选中，最总acceptor可以学习了大部分被选择的日志</li>
+</ol>
+<h1 id="Raft"><a href="#Raft" class="headerlink" title="Raft"></a>Raft</h1><p>在Raft体系中，有一个强leader，由它全权负责接收客户端的请求命令，并将命令作为日志条目复制给其他服务器，在确认安全的时候，将日志命令提交执行。当leader故障时，会选举产生一个新的leader。在强leader的帮助下，Raft将一致性问题分解为了三个子问题：</p>
+<ol>
+<li>leader选举：当已有的leader故障时必须选出一个新的leader。</li>
+<li>日志复制：leader接受来自客户端的命令，记录为日志，并复制给集群中的其他服务器，并强制其他节点的日志与leader保持一致。</li>
+<li>安全措施：通过一些措施确保系统的安全性，如确保所有状态机按照相同顺序执行相同命令的措施。</li>
+</ol>
+<h2 id="基本概念和过程"><a href="#基本概念和过程" class="headerlink" title="基本概念和过程"></a>基本概念和过程</h2><p>一个Raft集群拥有多个服务器，典型值是5，这样可以容忍两台服务器出现故障。服务器可能会处于如下三种角色：leader、candidate、follower，正常运行的情况下，会有一个leader，其他全为follower，follower只会响应leader和candidate的请求，而客户端的请求则全部由leader处理，即使有客户端请求了一个follower也会将请求重定向到leader。candidate代表候选人，出现在选举leader阶段，选举成功后candidate将会成为新的leader。</p>
+<p>集群刚启动时，所有节点都是follower，之后在time out信号的驱使下，follower会转变成candidate去拉取选票，获得大多数选票后就会成为leader，这时候如果其他候选人发现了新的leader已经诞生，就会自动转变为follower；而如果另一个time out信号发出时，还没有选举出leader，将会重新开始一次新的选举。可见，time out信号是促使角色转换得关键因素，类似于操作系统中得中断信号。</p>
+<p>在Raft协议中，将时间分成了一些任意长度的时间片，称为term，term使用连续递增的编号的进行识别，每一个term都从新的选举开始，candidate们会努力争取称为leader。一旦获胜，它就会在剩余的term时间内保持leader状态，在某些情况下(如term3)选票可能被多个candidate瓜分，形不成多数派，因此term可能直至结束都没有leader，下一个term很快就会到来重新发起选举。</p>
+<p>term也起到了系统中逻辑时钟的作用，每一个server都存储了当前term编号，在server之间进行交流的时候就会带有该编号，如果一个server的编号小于另一个的，那么它会将自己的编号更新为较大的那一个；如果leader或者candidate发现自己的编号不是最新的了，就会自动转变为follower；如果接收到的请求的term编号小于自己的当前term将会拒绝执行。server之间的交流是通过RPC进行的。只需要实现两种RPC就能构建一个基本的Raft集群：</p>
+<ul>
+<li>RequestVote RPC：它由选举过程中的candidate发起，用于拉取选票</li>
+<li>AppendEntries RPC：它由leader发起，用于复制日志或者发送心跳信号。</li>
+</ul>
+<h2 id="leader选举-1"><a href="#leader选举-1" class="headerlink" title="leader选举"></a>leader选举</h2><ol>
+<li>Raft通过心跳机制发起leader选举。节点都是从follower状态开始的，如果收到了来自leader或candidate的RPC，那它就保持follower状态，避免争抢成为candidate。Leader会发送空的AppendEntries RPC作为心跳信号来确立自己的地位，如果follower一段时间(election timeout)没有收到心跳，它就会认为leader已经挂了，发起新的一轮选举。</li>
+<li>选举发起后，一个follower会增加自己的当前term编号并转变为candidate。它会首先投自己一票，然后向其他所有节点并行发起RequestVote RPC，之后candidate状态将可能发生如下三种变化:<pre><code> * 赢得选举,成为leader: 如果它在一个term内收到了大多数的选票，将会在接下的剩余term时间内称为leader，然后就可以通过发送心跳确立自己的地位。(每一个server在一个term内只能投一张选票，并且按照先到先得的原则投出)；
+ * 其他server成为leader：在等待投票时，可能会收到其他server发出AppendEntries RPC心跳信号，说明其他leader已经产生了。这时通过比较自己的term编号和RPC过来的term编号，如果比对方大，说明leader的term过期了，就会拒绝该RPC,并继续保持候选人身份; 如果对方编号不比自己小,则承认对方的地位,转为follower；
+ * 选票被瓜分,选举失败: 如果没有candidate获取大多数选票, 则没有leader产生, candidate们等待超时后发起另一轮选举. 为了防止下一次选票还被瓜分,必须采取一些额外的措施, raft采用随机election timeout的机制防止选票被持续瓜分。通过将timeout随机设为一段区间上的某个值, 因此很大概率会有某个candidate率先超时然后赢得大部分选票。
+</code></pre>
+</li>
+</ol>
+<h2 id="日志复制"><a href="#日志复制" class="headerlink" title="日志复制"></a>日志复制</h2><p>一旦leader被选举成功，就可以对客户端提供服务了。客户端提交每一条命令都会被按顺序记录到leader的日志中，每一条命令都包含term编号和顺序索引，然后向其他节点并行发送AppendEntries RPC用以复制命令(如果命令丢失会不断重发)，当复制成功也就是大多数节点成功复制后，leader就会提交命令，即执行该命令并且将执行结果返回客户端。</p>
+<p>raft保证已经提交的命令最终也会被其他节点成功执行。leader会保存有当前已经提交的最高日志编号。顺序性确保了相同日志索引处的命令是相同的，而且之前的命令也是相同的。当发送AppendEntries RPC时，会包含leader上一条刚处理过的命令，接收节点如果发现上一条命令不匹配，就会拒绝执行。</p>
+<p><em>问题1：如果leader崩溃了，它所记录的日志没有完全被复制，会造成日志不一致的情况，follower相比于当前的leader可能会丢失几条日志，也可能会额外多出几条日志，这种情况可能会持续几个term。</em></p>
+<p><strong>在Raft中，leader通过强制follower复制自己的日志来解决上述日志不一致的情形，那么冲突的日志将会被重写。为了让日志一致，先找到最新的一致的那条日志(如f中索引为3的日志条目)，然后把follower之后的日志全部删除，leader再把自己在那之后的日志一股脑推送给follower，这样就实现了一致。而寻找该条日志，可以通过AppendEntries RPC，该RPC中包含着下一次要执行的命令索引，如果能和follower的当前索引对上，那就执行，否则拒绝，然后leader将会逐次递减索引，直到找到相同的那条日志。</strong></p>
+<p><em>问题2:比如某个follower在leader提交时宕机了，也就是少了几条命令，然后它又经过选举成了新的leader，这样它就会强制其他follower跟自己一样，使得其他节点上刚刚提交的命令被删除，导致客户端提交的一些命令被丢失了。</em></p>
+<p><strong>Raft通过投票过程确保只有拥有全部已提交日志的candidate能成为leader。由于candidate为了拉选票需要通过RequestVote RPC联系其他节点，而之前提交的命令至少会存在于其中某一个节点上,因此只要candidate的日志至少和其他大部分节点的一样新就可以了, follower如果收到了不如自己新的candidate的RPC,就会将其丢弃。</strong></p>
+<h2 id="日志压缩"><a href="#日志压缩" class="headerlink" title="日志压缩"></a>日志压缩</h2><p>随着日志大小的增长，会占用更多的内存空间，处理起来也会耗费更多的时间，对系统的可用性造成影响，因此必须想办法压缩日志大小。Snapshotting是最简单的压缩方法，系统的全部状态会写入一个snapshot保存起来，然后丢弃截止到snapshot时间点之前的所有日志。</p>
+<h1 id="Multi-Raft"><a href="#Multi-Raft" class="headerlink" title="Multi-Raft"></a>Multi-Raft</h1><h2 id="什么是Multi-Raft"><a href="#什么是Multi-Raft" class="headerlink" title="什么是Multi-Raft"></a>什么是Multi-Raft</h2><p>Multi-Raft是把管理的数据进行切片，每一个切片的数据都有自己的副本，这些副本之间的数据使用Raft算法来保证一致性，在全局看来整个系统中同时存在多个Region。每个 Region 都对应有独立的 Leader 和一个或多个 Follower 的 Raft 组进行横向扩展，此时系统便有多个写入的节点，从而分担写入压力。</p>
+<h2 id="Multi-Raft存在的一些问题"><a href="#Multi-Raft存在的一些问题" class="headerlink" title="Multi-Raft存在的一些问题"></a>Multi-Raft存在的一些问题</h2><p>单个Raft-Group在KV的场景下存在一些弊端:</p>
+<ol>
+<li>系统的存储容量受制于单机的存储容量（使用分布式存储除外）</li>
+<li>系统的性能受制于单机的性能（读写请求都由Leader节点处理）</li>
+</ol>
+<p>Multi-Raft需要解决的一些核心问题：</p>
+<ol>
+<li>数据何如分片</li>
+<li>分片中的数据越来越大，需要分裂产生更多的分片，组成更多Raft-Group</li>
+<li>分片的调度，让负载在系统中更平均（分片副本的迁移，补全，Leader切换等等）</li>
+<li>一个节点上，所有的Raft-Group复用链接（否则Raft副本之间两两建链，链接爆炸了）</li>
+<li>如何处理stale的请求（例如Proposal和Apply的时候，当前的副本不是Leader、分裂了、被销毁了等等）</li>
+<li>Snapshot如何管理（限制Snapshot，避免带宽、CPU、IO资源被过度占用）</li>
+</ol>
+<h2 id="不同工业实现"><a href="#不同工业实现" class="headerlink" title="不同工业实现"></a>不同工业实现</h2><h3 id="一-Sofa-JRaft实现"><a href="#一-Sofa-JRaft实现" class="headerlink" title="一.  Sofa-JRaft实现"></a>一.  Sofa-JRaft实现</h3><ul>
+<li>选举和复制</li>
+<li>Placement Driver</li>
+<li>Store</li>
+<li>Region</li>
+<li>RegionRouteTable 路由表组件</li>
+<li>分区逻辑</li>
+<li>读写逻辑</li>
+<li>Split/Merge</li>
+<li>Failover</li>
+</ul>
+<h3 id="二-TiKV实现"><a href="#二-TiKV实现" class="headerlink" title="二. TiKV实现"></a>二. TiKV实现</h3><ul>
+<li>Placement Driver</li>
+<li>Raftstore<ul>
+<li>Region</li>
+<li>RocksDB / Keys Prefix</li>
+<li>Peer Storage</li>
+<li>Peer</li>
+<li>Multi-raft</li>
+</ul>
+</li>
+</ul>
+<h3 id="三-CrDB实现"><a href="#三-CrDB实现" class="headerlink" title="三. CrDB实现"></a>三. CrDB实现</h3><ul>
+<li>Range Leases</li>
+<li>Colocation with Raft leadership</li>
+<li>Command Execution Flow</li>
+<li>Splitting/Merging Ranges</li>
+<li>Node Allocation</li>
+<li>Node and Cluster Metrics</li>
+<li>Zones</li>
+</ul>
+<h1 id="其他变种"><a href="#其他变种" class="headerlink" title="其他变种"></a>其他变种</h1><h2 id="Mencius-Paxos"><a href="#Mencius-Paxos" class="headerlink" title="Mencius Paxos"></a>Mencius Paxos</h2><ol>
+<li>mencius通过预先分配instance槽位实现了多写；</li>
+<li>运行速度取决于最慢的一个；</li>
+<li>avalibilty比multipaxos还差，一旦任意一个replica出现failure，其他replica都要等待，直到超时后发起一个no-ops；</li>
+</ol>
+<h2 id="Fast-Paxos"><a href="#Fast-Paxos" class="headerlink" title="Fast Paxos"></a>Fast Paxos</h2><ol>
+<li>client发送cmd到所有的replica，减少一跳消息；</li>
+<li>需要一个replica来充当coordinator和learner，当acceptors收到的cmd的顺序不一致时，必须有稳定的leader来仲裁；</li>
+</ol>
+<h2 id="Generalized-Paxos"><a href="#Generalized-Paxos" class="headerlink" title="Generalized Paxos"></a>Generalized Paxos</h2><ol>
+<li>当cmd没有依赖关系，允许乱序commit；</li>
+<li>同样需要leader来给有依赖关系的cmd排序；</li>
+</ol>
+<h1 id="Epaxos设计"><a href="#Epaxos设计" class="headerlink" title="Epaxos设计"></a>Epaxos设计</h1><h2 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h2><ol>
+<li>没有leader，这样，所有节点都是对等的（也就是论文的标题），没有瓶颈节点，集群的load分散到各个节点上；</li>
+<li>client可以把proposal就近发送到某个节点上;</li>
+<li>容错性更高，不会出现因为慢节点而影响集群的服务质量，降低长尾的latency；</li>
+<li>创新<ol>
+<li>分布式算法执行的过程就是对cmd进行排序的过程：multi-paxox, g-paxos完全由leader分配顺序；mencius是按照规则预先建立起来的槽位；</li>
+<li>Epaxos的顺序是动态决定的，给每个cmd添加排序的约束（依赖关系），每个节点通过依赖关系最终保证commit的顺序是一样的。</li>
+</ol>
+</li>
+</ol>
+<h2 id="CMD顺序问题"><a href="#CMD顺序问题" class="headerlink" title="CMD顺序问题"></a>CMD顺序问题</h2><ol>
+<li>cmd之间没有依赖关系：就没有必要保证一致性的顺序；</li>
+<li>cmd之间有依赖关系：后发生的cmd需要获取dependencies，每个cmd在发送前携带它所看到的dependencies；</li>
+<li>通过解析dependencies关系，来确定execute顺序</li>
+</ol>
+<h2 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h2><p>Preliminaries ：</p>
+<ul>
+<li>Instance的顺序不是事先分配的（比如paxos中在issue一个proposal时就要决定出一个instanceID），而是随着cmd被commit时决定出来的；</li>
+<li>commit和execute顺序没有必然联系，是不同的操作（raft的commit顺序和execute是一样的，g-paxos是不一样的），两者没有必要保持一致；</li>
+<li>replica告知client一个cmd被commit了，client并不能知晓这个cmd是否被execute了，只能通过发起一次read操作，replica会保证先execute；</li>
+<li>定义command interfere：如果执行[a, b]的顺序和执行[b, a]产生的结果不一样，就说a,b 之间是有依赖关系。</li>
+</ul>
+<h2 id="主要算法流程"><a href="#主要算法流程" class="headerlink" title="主要算法流程"></a>主要算法流程</h2><ol>
+<li><p>Commit protocol</p>
+<ul>
+<li>Fast path</li>
+</ul>
+<ol>
+<li>Replica L收到了client发过来的cmd a，开始a的choose过程;</li>
+<li>L在自己的instance sub-space里找到下一个instance槽位;</li>
+<li>L计算自己看到的cmd a的依赖关系deps（也就是在cmd a之前，还有哪些cmd也更新同一个值），依赖关系的计算方法：遍历其他replica 的conficts 的冲突，找到相同key对应的instance（这个instance没有必要是commit的）；</li>
+<li>L计算cmd的seq：用来打破循环依赖，遍历所有replica上seq最大值加1；</li>
+<li>广播PreAccept消息(PreAccept=&lt;cmd a, deps, seq&gt;)到fast path；</li>
+<li>其他replica收到PreAccept消息后更新内容的conflict map，并且持久化PreAccept（deps,seq也要持久化)；</li>
+<li>Replica L开始接收RepAccept的Reply消息：<ul>
+<li>如果cmdleader 收到足够多的reply，并且这些reply的attribute都是一致的，意味着多数派看到的attribute是consistent，L就认为可以commit了；</li>
+<li>如果收到attr不同的reply，则更新自己attr：取所有deps的并集，并更新seq为最大值，并且进入第二阶段</li>
+</ul>
+</li>
+</ol>
+<ul>
+<li>slow path</li>
+</ul>
+<ol>
+<li>这一阶段对应basic paxos的accept阶段，发送上一阶段merge之后的&lt;cmd a, deps, seq&gt;。也就是：Replica L发现了新的依赖关系，要其他的Replica也接受这个依赖关系；</li>
+<li>Accept消息成功的广播之后，达成了commit了，发送commit；</li>
+</ol>
+</li>
+<li><p>execute protocol</p>
+<ol>
+<li>每个Replica遍历自己的所有的instance space；</li>
+<li>如果instance没有依赖其他的instance，直接execute；</li>
+<li>如果instance有依赖关系，则进行Tarjan算法，寻找以这个点根的最大联通分量，并把这个联通分量按照seq排序，依次execute；</li>
+<li>如果instance一定的超时时间之内没有达到commit，则主动发送prepare，触发prepare阶段；</li>
+</ol>
+</li>
+</ol>
+<h1 id="问题一：几种协议在选取leader，决策，广播消息等方面的异同点是什么？"><a href="#问题一：几种协议在选取leader，决策，广播消息等方面的异同点是什么？" class="headerlink" title="问题一：几种协议在选取leader，决策，广播消息等方面的异同点是什么？"></a>问题一：几种协议在选取leader，决策，广播消息等方面的异同点是什么？</h1><h1 id="问题二：协议中的每个node能否只通过本地状态读取即可获取当前最新状态，是否需要和leader节点进行交互？"><a href="#问题二：协议中的每个node能否只通过本地状态读取即可获取当前最新状态，是否需要和leader节点进行交互？" class="headerlink" title="问题二：协议中的每个node能否只通过本地状态读取即可获取当前最新状态，是否需要和leader节点进行交互？"></a>问题二：协议中的每个node能否只通过本地状态读取即可获取当前最新状态，是否需要和leader节点进行交互？</h1>
+            <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
+            <audio id="audio" loop="1" preload="auto" controls="controls"
+                data-autoplay="false">
+                <source type="audio/mpeg" src="">
+            </audio>
+            
+            <ul id="audio-list" style="display:none">
+                
+                
+                <li title='0' data-url='/statics/chengdu.mp3'></li>
+                
+                    
+            </ul>
+            
+            
+            <div class="post-nav">
+                <hr>
+                
+                
+                    <div class="post-nav-item">Next Post:<a href="/2021/05/14/Paxos/" rel="next" 
+                        title="Paxos">Paxos</a></div>
+                                
+            </div>   
+                        
+            
+            
+    <div id='gitalk-container' class="comment link"
+        data-ae='true'
+        data-ci='ec894e2b66f752e8b7fb'
+        data-cs='3ccc2e92bb350688fe2c2dc2930189b62622bfb1'
+        data-r='blog-comments'
+        data-o='TriDiamond'
+        data-a='TriDiamond'
+        data-d=''
+    >Comments</div>
+
+
+            
+            
+        </div>
+        <div class="sidebar">
+            <div class="box animated fadeInRight">
+                <div class="subbox">
+                    <img src="https://res.cloudinary.com/tridiamond/image/upload/v1573019751/TriDiamond_logo_ui_xeublz.jpg" height=300 width=300></img>
+                    <p>Huanbing Lu</p>
+                    <span>Talk is cheap, show me the code!</span>
+                    <dl>
+                        <dd><a href="https://github.com/TriDiamond" target="_blank"><span
+                                    class=" iconfont icon-github"></span></a></dd>
+                        <dd><a href="https://twitter.com/TriDiamond6" target="_blank"><span
+                                    class=" iconfont icon-twitter"></span></a></dd>
+                        <dd><a href="https://stackoverflow.com/users/7602324/tridiamond?tab=profile" target="_blank"><span
+                                    class=" iconfont icon-stack-overflow"></span></a></dd>
+                    </dl>
+                </div>
+                <ul>
+                    <li><a href="/">4 <p>Articles</p></a></li>
+                    <li><a href="/categories">0 <p>Categories</p></a></li>
+                    <li><a href="/tags">0 <p>Tags</p></a></li>
+                </ul>
+            </div>
+            
+            
+            
+            <div class="box sticky animated fadeInRight faster">
+                <div id="toc" class="subbox">
+                    <h4>Contents</h4>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Basic-Paxos"><span class="toc-number">1.</span> <span class="toc-text">Basic Paxos</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D%E8%A7%92%E8%89%B2"><span class="toc-number">1.1.</span> <span class="toc-text">三种角色</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Paxos%E6%8F%90%E6%A1%88%E8%BF%87%E7%A8%8B"><span class="toc-number">1.2.</span> <span class="toc-text">Paxos提案过程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9A%E7%A7%B0%E4%B8%BAprepare%E9%98%B6%E6%AE%B5%E3%80%82"><span class="toc-number">1.2.1.</span> <span class="toc-text">第一阶段：称为prepare阶段。</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%9A%E7%A7%B0%E4%B8%BApropose%E9%98%B6%E6%AE%B5%E3%80%82"><span class="toc-number">1.2.2.</span> <span class="toc-text">第二阶段：称为propose阶段。</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E9%98%B6%E6%AE%B5%EF%BC%9A%E7%A7%B0%E4%B8%BAlearn%E9%98%B6%E6%AE%B5%E3%80%82"><span class="toc-number">1.2.3.</span> <span class="toc-text">第三阶段：称为learn阶段。</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E7%AE%97%E6%B3%95%E6%97%B6%E4%BA%A7%E7%94%9F%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">1.3.</span> <span class="toc-text">实现算法时产生的问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95%E4%B8%AAacceptor"><span class="toc-number">1.3.1.</span> <span class="toc-text">单个acceptor</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%86%E6%95%A3%E6%8A%95%E7%A5%A8"><span class="toc-number">1.3.2.</span> <span class="toc-text">分散投票</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%80%89%E6%8B%A9%E5%86%B2%E7%AA%81"><span class="toc-number">1.3.3.</span> <span class="toc-text">选择冲突</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B4%BB%E9%94%81%E7%8E%B0%E8%B1%A1"><span class="toc-number">1.3.4.</span> <span class="toc-text">活锁现象</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%90%E6%A1%88%E7%BC%96%E5%8F%B7"><span class="toc-number">1.3.5.</span> <span class="toc-text">提案编号</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Multi-Paxos"><span class="toc-number">2.</span> <span class="toc-text">Multi-Paxos</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E5%86%85%E5%AE%B9%E9%80%89%E6%8B%A9"><span class="toc-number">2.1.</span> <span class="toc-text">日志内容选择</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96"><span class="toc-number">2.2.</span> <span class="toc-text">性能优化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#leader%E9%80%89%E4%B8%BE"><span class="toc-number">2.2.1.</span> <span class="toc-text">leader选举</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%8B%E7%BC%A9prepare%E8%AF%B7%E6%B1%82"><span class="toc-number">2.2.2.</span> <span class="toc-text">压缩prepare请求</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E5%85%A8%E5%A4%8D%E5%88%B6"><span class="toc-number">2.3.</span> <span class="toc-text">日志全复制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Raft"><span class="toc-number">3.</span> <span class="toc-text">Raft</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5%E5%92%8C%E8%BF%87%E7%A8%8B"><span class="toc-number">3.1.</span> <span class="toc-text">基本概念和过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#leader%E9%80%89%E4%B8%BE-1"><span class="toc-number">3.2.</span> <span class="toc-text">leader选举</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E5%A4%8D%E5%88%B6"><span class="toc-number">3.3.</span> <span class="toc-text">日志复制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E5%8E%8B%E7%BC%A9"><span class="toc-number">3.4.</span> <span class="toc-text">日志压缩</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Multi-Raft"><span class="toc-number">4.</span> <span class="toc-text">Multi-Raft</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFMulti-Raft"><span class="toc-number">4.1.</span> <span class="toc-text">什么是Multi-Raft</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Multi-Raft%E5%AD%98%E5%9C%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E9%97%AE%E9%A2%98"><span class="toc-number">4.2.</span> <span class="toc-text">Multi-Raft存在的一些问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E5%90%8C%E5%B7%A5%E4%B8%9A%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.3.</span> <span class="toc-text">不同工业实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-Sofa-JRaft%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.3.1.</span> <span class="toc-text">一.  Sofa-JRaft实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-TiKV%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.3.2.</span> <span class="toc-text">二. TiKV实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-CrDB%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.3.3.</span> <span class="toc-text">三. CrDB实现</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%8F%98%E7%A7%8D"><span class="toc-number">5.</span> <span class="toc-text">其他变种</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Mencius-Paxos"><span class="toc-number">5.1.</span> <span class="toc-text">Mencius Paxos</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Fast-Paxos"><span class="toc-number">5.2.</span> <span class="toc-text">Fast Paxos</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Generalized-Paxos"><span class="toc-number">5.3.</span> <span class="toc-text">Generalized Paxos</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Epaxos%E8%AE%BE%E8%AE%A1"><span class="toc-number">6.</span> <span class="toc-text">Epaxos设计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%B9%E7%82%B9"><span class="toc-number">6.1.</span> <span class="toc-text">特点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CMD%E9%A1%BA%E5%BA%8F%E9%97%AE%E9%A2%98"><span class="toc-number">6.2.</span> <span class="toc-text">CMD顺序问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%BE%E8%AE%A1"><span class="toc-number">6.3.</span> <span class="toc-text">设计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E8%A6%81%E7%AE%97%E6%B3%95%E6%B5%81%E7%A8%8B"><span class="toc-number">6.4.</span> <span class="toc-text">主要算法流程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E4%B8%80%EF%BC%9A%E5%87%A0%E7%A7%8D%E5%8D%8F%E8%AE%AE%E5%9C%A8%E9%80%89%E5%8F%96leader%EF%BC%8C%E5%86%B3%E7%AD%96%EF%BC%8C%E5%B9%BF%E6%92%AD%E6%B6%88%E6%81%AF%E7%AD%89%E6%96%B9%E9%9D%A2%E7%9A%84%E5%BC%82%E5%90%8C%E7%82%B9%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.</span> <span class="toc-text">问题一：几种协议在选取leader，决策，广播消息等方面的异同点是什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E4%BA%8C%EF%BC%9A%E5%8D%8F%E8%AE%AE%E4%B8%AD%E7%9A%84%E6%AF%8F%E4%B8%AAnode%E8%83%BD%E5%90%A6%E5%8F%AA%E9%80%9A%E8%BF%87%E6%9C%AC%E5%9C%B0%E7%8A%B6%E6%80%81%E8%AF%BB%E5%8F%96%E5%8D%B3%E5%8F%AF%E8%8E%B7%E5%8F%96%E5%BD%93%E5%89%8D%E6%9C%80%E6%96%B0%E7%8A%B6%E6%80%81%EF%BC%8C%E6%98%AF%E5%90%A6%E9%9C%80%E8%A6%81%E5%92%8Cleader%E8%8A%82%E7%82%B9%E8%BF%9B%E8%A1%8C%E4%BA%A4%E4%BA%92%EF%BC%9F"><span class="toc-number">8.</span> <span class="toc-text">问题二：协议中的每个node能否只通过本地状态读取即可获取当前最新状态，是否需要和leader节点进行交互？</span></a></li></ol>
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</div>
+
+    </div>
+</div>
+    <div id="back-to-top" class="animated fadeIn faster">
+        <div class="flow"></div>
+        <span class="percentage animated fadeIn faster">0%</span>
+        <span class="iconfont icon-top02 animated fadeIn faster"></span>
+    </div>
+</body>
+<footer>
+    <p class="copyright" id="copyright">
+        &copy; 2021
+        <span class="gradient-text">
+            Huanbing Lu
+        </span>.
+        Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a>
+        Theme
+        <span class="gradient-text">
+            <a href="https://github.com/TriDiamond/hexo-theme-obsidian" title="Obsidian" target="_blank" rel="noopener">Obsidian</a>
+        </span>
+        <small><a href="https://github.com/TriDiamond/hexo-theme-obsidian/blob/master/CHANGELOG.md" title="v1.4.5" target="_blank" rel="noopener">v1.4.5</a></small>
+    </p>
+</footer>
+
+<script type="text/javascript" src="https://cdn.bootcss.com/mathjax/2.7.6/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script>
+  MathJax.Hub.Config({
+    "HTML-CSS": {
+      preferredFont: "TeX",
+      availableFonts: ["STIX", "TeX"],
+      linebreaks: {
+        automatic: true
+      },
+      EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50)
+    },
+    tex2jax: {
+      inlineMath: [
+        ["$", "$"],
+        ["\\(", "\\)"]
+      ],
+      processEscapes: true,
+      ignoreClass: "tex2jax_ignore|dno",
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      noUndefined: {
+        attributes: {
+          mathcolor: "red",
+          mathbackground: "#FFEEEE",
+          mathsize: "90%"
+        }
+      },
+      Macros: {
+        href: "{}"
+      }
+    },
+    messageStyle: "none"
+  });
+</script>
+<script>
+  function initialMathJax() {
+    MathJax.Hub.Queue(function () {
+      var all = MathJax.Hub.getAllJax(),
+        i;
+      // console.log(all);
+      for (i = 0; i < all.length; i += 1) {
+        console.log(all[i].SourceElement().parentNode)
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+    });
+  }
+
+  function reprocessMathJax() {
+    if (typeof MathJax !== 'undefined') {
+      MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+    }
+  }
+</script>
+
+
+ 
+<link rel="stylesheet" href="//cdn.bootcss.com/gitalk/1.5.0/gitalk.min.css">
+ 
+<script src="//cdn.bootcss.com/gitalk/1.5.0/gitalk.min.js"></script>
+  
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="/js/plugin.js"></script>
+<script src="/js/obsidian.js"></script>
+<script src="/js/jquery.truncate.js"></script>
+<script src="/js/search.js"></script>
+ 
+<script src="//cdn.bootcss.com/typed.js/2.0.10/typed.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+ 
+<script src="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/js/social-share.min.js"></script>
+
+
+<script src="https://cdn.bootcss.com/codemirror/5.48.4/codemirror.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/javascript/javascript.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/css/css.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/xml/xml.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/htmlmixed/htmlmixed.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/clike/clike.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/php/php.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/shell/shell.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/python/python.min.js"></script>
+   
+<script src="/js/busuanzi.min.js"></script>
+
+<script>
+  $(document).ready(function () {
+    if ($('span[id^="busuanzi_"]').length) {
+      initialBusuanzi();
+    }
+  });
+</script>
+ 
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.css">
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/default-skin/default-skin.min.css">
+
+
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.js"></script>
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe-ui-default.min.js"></script>
+
+
+<!-- Root element of PhotoSwipe. Must have class pswp. -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+    <!-- Background of PhotoSwipe. 
+         It's a separate element as animating opacity is faster than rgba(). -->
+    <div class="pswp__bg"></div>
+    <!-- Slides wrapper with overflow:hidden. -->
+    <div class="pswp__scroll-wrap">
+        <!-- Container that holds slides. 
+            PhotoSwipe keeps only 3 of them in the DOM to save memory.
+            Don't modify these 3 pswp__item elements, data is added later on. -->
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+        <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+        <div class="pswp__ui pswp__ui--hidden">
+            <div class="pswp__top-bar">
+                <!--  Controls are self-explanatory. Order can be changed. -->
+                <div class="pswp__counter"></div>
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+                <!-- Preloader demo http://codepen.io/dimsemenov/pen/yyBWoR -->
+                <!-- element will get class pswp__preloader--active when preloader is running -->
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                      <div class="pswp__preloader__cut">
+                        <div class="pswp__preloader__donut"></div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div> 
+            </div>
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+ 
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="//www.googletagmanager.com/gtag/js?id=UA-149874671-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag('js', new Date());
+
+  gtag('config', 'UA-149874671-1');
+</script>
+ 
+
+<script>
+  function initialTyped() {
+    var typedTextEl = $('.typed-text');
+    if (typedTextEl && typedTextEl.length > 0) {
+      var typed = new Typed('.typed-text', {
+        strings: ['Talk is cheap, show me the code!', '纸上得来终觉浅，绝知此事要躬行。'],
+        typeSpeed: 90,
+        loop: true,
+        loopCount: Infinity,
+        backSpeed: 20,
+      });
+    }
+  }
+
+  if ($('.article-header') && $('.article-header').length) {
+    $(document).ready(function () {
+      initialTyped();
+    });
+  }
+</script>
+
+
+
+
+ <!-- 例：百度统计 --> <script> var _hmt = _hmt || []; (function() { var hm = document.createElement("script"); hm.src = "https://hm.baidu.com/hm.js?your_code"; var s = document.getElementsByTagName("script")[0];  s.parentNode.insertBefore(hm, s); })(); </script> 
+
+</html>

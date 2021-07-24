@@ -1,0 +1,631 @@
+
+<!DOCTYPE html>
+<html lang="en" class="loading">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Contributed System Cache - Coding</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="google" content="notranslate" />
+    <meta name="keywords" content="TriDiamond Obsidian,"> 
+    <meta name="description" content="This is for my own.,OpenEuler 比赛-分布式缓存设计与实现项目背景随着5G、物联网、互联网各种云原生、等系统平台的演变，内容信息越来越复杂，用户数和访问量越来越大，我们的应用需要支撑更多的并发量，同时我们的应用,"> 
+    <meta name="author" content="Huanbing Lu"> 
+    <link rel="alternative" href="atom.xml" title="Coding" type="application/atom+xml"> 
+    <link rel="icon" href="/img/favicon.png"> 
+    
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1429596_nzgqgvnmkjb.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.7.2/animate.min.css">
+
+    
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/css/share.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/codemirror.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/theme/dracula.css">
+
+    
+<link rel="stylesheet" href="/css/obsidian.css">
+
+    
+<link rel="stylesheet" href="/css/ball-atom.min.css">
+
+    
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+
+<body class="loading">
+    <div class="loader">
+        <div class="la-ball-atom la-2x">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+    <span id="config-title" style="display:none">Coding</span>
+    <div id="loader"></div>
+    <div id="single">
+    <div class="scrollbar gradient-bg-rev"></div>
+<div id="top" style="display: block;">
+    <div class="bar" style="width: 0;"></div>
+    <div class="navigation animated fadeIn fast delay-1s">
+        <img id="home-icon" class="icon-home" src="/img/favicon.png" alt="" data-url="http://example.com">
+        <div id="play-icon" title="Play/Pause" class="iconfont icon-play"></div>
+        <h3 class="subtitle">Contributed System Cache</h3>
+        <div class="social">
+            <!--        <div class="like-icon">-->
+            <!--            <a href="javascript:;" class="likeThis active"><span class="icon-like"></span><span class="count">76</span></a>-->
+            <!--        </div>-->
+            <div>
+                <div class="share">
+                    
+                        <a href="javascript:;" class="iconfont icon-share1"></a>
+                        <div class="share-component-cc" data-disabled="facebook,douban,linkedin,diandian,tencent,google"></div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="section">
+        <div class=article-header-wrapper>
+    <div class="article-header">
+        <div class="article-cover animated fadeIn" style="
+            animation-delay: 600ms;
+            animation-duration: 1.2s;
+            background-image: 
+                radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.65), #100e17),
+                url(/img/cover.jpg) ">
+        </div>
+        <div class="else">
+            <p class="animated fadeInDown">
+                
+                <a href="javascript:;"><b>「 </b>Article<b> 」</b></a>
+                
+                March 23, 2021
+            </p>
+            <h3 class="post-title animated fadeInDown"><a href="/2021/03/23/Distributed-Cache/" title="Contributed System Cache" class="">Contributed System Cache</a>
+            </h3>
+            
+            <p class="post-count animated fadeInDown">
+                
+                <span>
+                    <b class="iconfont icon-text2"></b> <i>Words count</i>
+                    13k
+                </span>
+                
+                
+                <span>
+                    <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
+                    12 mins.
+                </span>
+                
+                
+                
+                <span id="busuanzi_container_page_pv">
+                    <b class="iconfont icon-read"></b> <i>Read count</i>
+                    <span id="busuanzi_value_page_pv">0</span>
+                </span>
+                
+            </p>
+            
+            
+        </div>
+    </div>
+</div>
+
+<div class="screen-gradient-after">
+    <div class="screen-gradient-content">
+        <div class="screen-gradient-content-inside">
+            <div class="bold-underline-links screen-gradient-sponsor">
+                <p>
+                    <span class="animated fadeIn delay-1s"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="article">
+    <div class='main'>
+        <div class="content markdown animated fadeIn">
+            <h1 id="OpenEuler-比赛-分布式缓存设计与实现"><a href="#OpenEuler-比赛-分布式缓存设计与实现" class="headerlink" title="OpenEuler 比赛-分布式缓存设计与实现"></a>OpenEuler 比赛-分布式缓存设计与实现</h1><h2 id="项目背景"><a href="#项目背景" class="headerlink" title="项目背景"></a>项目背景</h2><p>随着5G、物联网、互联网各种云原生、等系统平台的演变，内容信息越来越复杂，用户数和访问量越来越大，我们的应用需要支撑更多的并发量，同时我们的应用服务器和数据库服务器所做的计算也越来越多。但是往往我们的应用服务器资源是有限的，且技术变革是缓慢的，数据库每秒能接受的请求次数也是有限的（或者文件的读写也是有限的），如何能够有效利用有限的资源来提供尽可能大的吞吐量？一个有效的办法就是引入缓存，打破标准流程，每个环节中请求可以从缓存中直接获取目标数据并返回，从而减少计算量，有效提升响应速度，让有限的资源服务更多的用户。</p>
+<p><img src="assets/level.png" alt="level"></p>
+<p>上述为缓存系统在整个系统生命周期中的应用，每个环节的缓存各有使用特点。</p>
+<h3 id="缓存算法背景"><a href="#缓存算法背景" class="headerlink" title="缓存算法背景"></a>缓存算法背景</h3><ul>
+<li>FIFO(first in first out)先进先出策略，最先进入缓存的数据在缓存空间不够的情况下（超出最大元素限制）会被优先被清除掉，以腾出新的空间接受新的数据。策略算法主要比较缓存元素的创建时间。在数据实效性要求场景下可选择该类策略，优先保障最新数据可用。</li>
+<li>LFU(less frequently used)最少使用策略，无论是否过期，根据元素的被使用次数判断，清除使用次数较少的元素释放空间。策略算法主要比较元素的hitCount（命中次数）。在保证高频数据有效性场景下，可选择这类策略。</li>
+<li>LRU(least recently used)最近最少使用策略，无论是否过期，根据元素最后一次被使用的时间戳，清除最远使用时间戳的元素释放空间。策略算法主要比较元素最近一次被get使用时间。在热点数据场景下较适用，优先保证热点数据的有效性。</li>
+<li>LFU的局限性：在 LFU 中只要数据访问模式的概率分布随时间保持不变时，其命中率就能变得非常高。但是他的历史局部访问量太高，其他的数据根本无法淘汰历史数据，所以有局限性。</li>
+<li>LRU的优点和局限性：LRU可以很好的应对突发流量的情况，因为不需累计数据频率。但LRU会认为最后到的数据是最可能被再次访问的，从而给予最高的优先级。在许多负载之下，LRU依然需要更多的空间才能做到跟LFU一致的缓存命中率。</li>
+</ul>
+<h3 id="缓存机制"><a href="#缓存机制" class="headerlink" title="缓存机制"></a>缓存机制</h3><p>虽然从硬件介质上来看，无非就是内存和硬盘两种，但从技术上，可以分成内存、硬盘文件、数据库。</p>
+<ul>
+<li>内存：将缓存存储于内存中是最快的选择，无需额外的I/O开销，但是内存的缺点是没有持久化落地物理磁盘，一旦应用异常break down而重新启动，数据很难或者无法复原。</li>
+<li>硬盘：一般来说，很多缓存框架会结合使用内存和硬盘，在内存分配空间满了或是在异常的情况下，可以被动或主动的将内存空间数据持久化到硬盘中，达到释放空间或备份数据的目的。</li>
+<li>数据库：前面有提到，增加缓存的策略的目的之一就是为了减少数据库的I/O压力。现在使用数据库做缓存介质是不是又回到了老问题上了？其实，数据库也有很多种类型，像那些不支持SQL，只是简单的key-value存储结构的特殊数据库（如BerkeleyDB和Redis），响应速度和吞吐量都远远高于我们常用的关系型数据库等。</li>
+</ul>
+<h3 id="缓存分类和应用场景"><a href="#缓存分类和应用场景" class="headerlink" title="缓存分类和应用场景"></a>缓存分类和应用场景</h3><ul>
+<li>缓存有各类特征，而且有不同介质的区别，那么实际工程中我们怎么去对缓存分类呢？在目前的应用服务框架中，比较常见的，时根据缓存雨应用的藕合度，分为local cache（本地缓存）和remote cache（分布式缓存）：<ul>
+<li>本地缓存：指的是在应用中的缓存组件，其最大的优点是应用和cache是在同一个进程内部，请求缓存非常快速，没有过多的网络开销等，在单应用不需要集群支持或者集群情况下各节点无需互相通知的场景下使用本地缓存较合适；同时，它的缺点也是应为缓存跟应用程序耦合，多个应用程序无法直接的共享缓存，各应用或集群的各节点都需要维护自己的单独缓存，对内存是一种浪费。</li>
+<li>分布式缓存：指的是与应用分离的缓存组件或服务，其最大的优点是自身就是一个独立的应用，与本地应用隔离，多个应用可直接的共享缓存。</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>目前各种类型的缓存都活跃在成千上万的应用服务中，还没有一种缓存方案可以解决一切的业务场景或数据类型，我们需要根据自身的特殊场景和背景，选择最适合的缓存方案。缓存的使用是程序员、架构师的必备技能，好的程序员能根据数据类型、业务场景来准确判断使用何种类型的缓存，如何使用这种缓存，以最小的成本最快的效率达到最优的目的。</p>
+</blockquote>
+<h3 id="本地缓存"><a href="#本地缓存" class="headerlink" title="本地缓存"></a>本地缓存</h3><ul>
+<li>个别场景下，我们只需要简单的缓存数据的功能，而无需关注更多存取、清空策略等深入的特性时，直接编程实现缓存则是最便捷和高效的。<ul>
+<li>成员变量或局部变量实现</li>
+<li>静态变量实现<blockquote>
+<p>业务中常用的基本信息判断，通过静态变量一次获取缓存内存中，减少频繁的I/O读取，静态变量实现类间可共享，进程内可共享，缓存的实时性稍差。为了解决本地缓存数据的实时性问题，目前大量使用的是结合ZooKeeper的自动发现机制，实时变更本地静态变量缓存。这类缓存实现，优点是能直接在heap区内读写，最快也最方便；缺点同样是受heap区域影响，缓存的数据量非常有限，同时缓存时间受GC影响。主要满足单机场景下的小数据量缓存需求，同时对缓存数据的变更无需太敏感感知，如上一般配置管理、基础静态数据等场景。</p>
+</blockquote>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="常用本地缓存"><a href="#常用本地缓存" class="headerlink" title="常用本地缓存"></a>常用本地缓存</h3><h4 id="Ehcache"><a href="#Ehcache" class="headerlink" title="Ehcache"></a>Ehcache</h4><p>Ehcache是现在最流行的纯Java开源缓存框架，配置简单、结构清晰、功能强大，是一个非常轻量级的缓存实现。<br>Ehcache的核心定义主要包括：</p>
+<ol>
+<li>cache manager：缓存管理器，以前是只允许单例的，不过现在也可以多实例了。</li>
+<li>cache：缓存管理器内可以放置若干cache，存放数据的实质，所有cache都实现了Ehcache接口，这是一个真正使用的缓存实例；通过缓存管理器的模式，可以在单个应用中轻松隔离多个缓存实例，独立服务于不同业务场景需求，缓存数据物理隔离，同时需要时又可共享使用。</li>
+<li>element：单条缓存数据的组成单位。</li>
+<li>system of record（SOR）：可以取到真实数据的组件，可以是真正的业务逻辑、外部接口调用、存放真实数据的数据库等，缓存就是从SOR中读取或者写入到SOR中去的。</li>
+</ol>
+<p>整个Ehcache提供了对JSR、JMX等的标准支持，能够较好的兼容和移植，同时对各类对象有较完善的监控管理机制。它的缓存介质涵盖堆内存（heap）、堆外内存和磁盘，各介质可独立设置属性和策略。Ehcache最初是独立的本地缓存框架组件，在后期的发展中，结合Terracotta服务阵列模型，可以支持分布式缓存集群，主要有RMI、JGroups、JMS和Cache Server等传播方式进行节点间通信。</p>
+<p>整体数据流转包括这样几类行为:</p>
+<p>Flush：缓存条目向低层次移动。<br>Fault：从低层拷贝一个对象到高层。在获取缓存的过程中，某一层发现自己的该缓存条目已经失效，就触发了Fault行为。<br>Eviction：把缓存条目除去。<br>Expiration：失效状态。<br>Pinning：强制缓存条目保持在某一层。</p>
+<blockquote>
+<p>Ehcache的超时设置主要是针对整个cache实例设置整体的超时策略，而没有较好的处理针对单独的key的个性的超时设置（有策略设置，但是比较复杂，就不描述了），因此，在使用中要注意过期失效的缓存元素无法被GC回收，时间越长缓存越多，内存占用也就越大，内存泄露的概率也越大。</p>
+</blockquote>
+<h4 id="Guava"><a href="#Guava" class="headerlink" title="Guava"></a>Guava</h4><p>Guava Cache是Google开源的一款缓存工具，其主要实现的缓存功能有：</p>
+<ul>
+<li>自动将entry节点加载进缓存结构中；</li>
+<li>当缓存的数据超过设置的最大值时，使用LRU算法移除；</li>
+<li>具备根据entry节点上次被访问或者写入时间计算它的过期机制；</li>
+<li>缓存的key被封装在WeakReference引用内；</li>
+<li>缓存的Value被封装在WeakReference或SoftReference引用内；</li>
+<li>统计缓存使用过程中命中率、异常率、未命中率等统计数据。<blockquote>
+<p>Guava Cache的架构设计灵感来源于ConcurrentHashMap，我们前面也提到过，简单场景下可以自行编码通过hashmap来做少量数据的缓存，但是，如果结果可能随时间改变或者是希望存储的数据空间可控的话，自己实现这种数据结构还是有必要的。</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="常用分布式缓存"><a href="#常用分布式缓存" class="headerlink" title="常用分布式缓存"></a>常用分布式缓存</h3><h4 id="Memcached"><a href="#Memcached" class="headerlink" title="Memcached"></a>Memcached</h4><p>memcached是应用较广的开源分布式缓存产品之一，它本身其实不提供分布式解决方案。在服务端,memcached集群环境实际就是一个个memcached服务器的堆积，环境搭建较为简单；cache的分布式主要是在客户端实现，通过客户端的路由处理来达到分布式解决方案的目的。客户端做路由的原理非常简单，应用服务器在每次存取某key的value时，通过某种算法把key映射到某台memcached服务器节点上，因此这个key所有操作都在这个节点上。</p>
+<p>memcached客户端采用一致性hash算法作为路由策略，相对于一般hash（如简单取模）的算法，一致性hash算法除了计算key的hash值外，还会计算每个server对应的hash值，然后将这些hash值映射到一个有限的值域上（比如0~2^32）。通过寻找hash值大于hash(key)的最小server作为存储该key数据的目标server。如果找不到，则直接把具有最小hash值的server作为目标server。同时，一定程度上，解决了扩容问题，增加或删除单个节点，对于整个集群来说，不会有大的影响。最近版本，增加了虚拟节点的设计，进一步提升了可用性。</p>
+<h4 id="Redis"><a href="#Redis" class="headerlink" title="Redis"></a>Redis</h4><p>Redis是一个远程内存数据库，性能卓越，具有复制特性以及解决问题而生的独一无二的数据模型。它可以存储键值对与5种不同类型的值之间的映射，可以将存储在内存的键值对数据持久化到硬盘，可以使用复制特性来扩展读性能，还可以使用客户端分片来扩展写性能。</p>
+<p>Redis内部使用一个redisObject对象来标识所有的key和value数据，redisObject最主要的信息如图所示：type代表一个value对象具体是何种数据类型，encoding是不同数据类型在Redis内部的存储方式，比如——type=string代表value存储的是一个普通字符串，那么对应的encoding可以是raw或是int，如果是int则代表世界Redis内部是按数值类型存储和表示这个字符串。</p>
+<ol>
+<li><p>对象的编码方式：字符串可以被编码为raw（一般字符串）或Rint（为了节约内存，Redis会将字符串表示的64位有符号整数编码为整数来进行储存）；列表可以被编码为ziplist或linkedlist，ziplist是为节约大小较小的列表空间而作的特殊表示；集合可以被编码为intset或者hashtable，intset是只储存数字的小集合的特殊表示；hash表可以编码为zipmap或者hashtable，zipmap是小hash表的特殊表示；有序集合可以被编码为ziplist或者skiplist格式，ziplist用于表示小的有序集合，而skiplist则用于表示任何大小的有序集合。</p>
+</li>
+<li><p>从网络I/O模型上看，Redis使用单线程的I/O复用模型，自己封装了一个简单的AeEvent事件处理框架，主要实现了epoll、kqueue和select。对于单纯只有I/O操作来说，单线程可以将速度优势发挥到最大，但是Redis也提供了一些简单的计算功能，比如排序、聚合等，对于这些操作，单线程模型实际会严重影响整体吞吐量，CPU计算过程中，整个I/O调度都是被阻塞住的，在这些特殊场景的使用中，需要额外的考虑。相较于memcached的预分配内存管理，Redis使用现场申请内存的方式来存储数据，并且很少使用free-list等方式来优化内存分配，会在一定程度上存在内存碎片。Redis跟据存储命令参数，会把带过期时间的数据单独存放在一起，并把它们称为临时数据，非临时数据是永远不会被剔除的，即便物理内存不够，导致swap也不会剔除任何非临时数据（但会尝试剔除部分临时数据）。</p>
+</li>
+</ol>
+<h2 id="功能描述"><a href="#功能描述" class="headerlink" title="功能描述"></a>功能描述</h2><h2 id="具体设计"><a href="#具体设计" class="headerlink" title="具体设计"></a>具体设计</h2><h3 id="ConcurrentHashMap"><a href="#ConcurrentHashMap" class="headerlink" title="ConcurrentHashMap"></a>ConcurrentHashMap</h3><p>参考JDK8版本中synchronized+CAS+HashEntry+红黑树。</p>
+<ol>
+<li>数据结构：取消了Segment分段锁的数据结构，取而代之的是Node数组+链表+红黑树的结构，从而实现了对每一行数据进行加锁，进一步减少并发冲突的概率。</li>
+<li>保证线程安全机制：JDK7采用segment的分段锁机制实现线程安全，其中segment继承自ReentrantLock。JDK8采用CAS(读)+Synchronized(写)保证线程安全。</li>
+<li>锁的粒度：原来是对需要进行数据操作的Segment加锁，JDK8调整为对每个数组元素加锁（Node）。</li>
+<li>链表转化为红黑树：定位结点的hash算法简化会带来弊端，Hash冲突加剧，因此在链表节点数量大于8时，会将链表转化为红黑树进行存储。</li>
+<li>查询时间复杂度：从原来的遍历链表O(n)，变成遍历红黑树O(logN)。</li>
+<li>JDK8推荐使用mappingCount方法而不是size方法获取当前map表的大小，因为这个方法的返回值是long类型，size方法是返回值类型是int。</li>
+</ol>
+<h4 id="Get过程"><a href="#Get过程" class="headerlink" title="Get过程"></a>Get过程</h4><ul>
+<li>计算hash值，定位到该table索引位置，如果是首节点符合就返回。</li>
+<li>如果遇到扩容的时候，会调用标志正在扩容节点ForwardingNode的find方法，查找该节点，匹配就返回。</li>
+<li>以上都不符合的话，就往下遍历节点，匹配就返回，否则最后就返回null。</li>
+</ul>
+<h4 id="Put过程"><a href="#Put过程" class="headerlink" title="Put过程"></a>Put过程</h4><ul>
+<li>如果没有初始化就先调用initTable（）方法来进行初始化过程</li>
+<li>如果没有hash冲突就直接CAS插入</li>
+<li>如果还在进行扩容操作就先进行扩容</li>
+<li>如果存在hash冲突，就加synchronized锁来保证线程安全，这里有两种情况，一种是链表形式就直接遍历到尾端插入，一种是红黑树就按照红黑树结构插入，</li>
+<li>最后一个如果该链表的数量大于阈值8，就要先转换成黑红树的结构，break再一次进入循环</li>
+<li>如果添加成功就调用addCount方法统计size，并且检查是否需要扩容</li>
+</ul>
+<h3 id="WtinyLFU"><a href="#WtinyLFU" class="headerlink" title="WtinyLFU"></a>WtinyLFU</h3><p>W-TinyLFU（Window Tiny Least Frequently Used）是对LFU的的优化和加强。</p>
+<p>算法：当一个数据进来的时候，会进行筛选比较，进入W-LRU窗口队列，以此应对流量突增，经过淘汰后进入过滤器，通过访问访问频率判决是否进入缓存。如果一个数据最近被访问的次数很低，那么被认为在未来被访问的概率也是最低的，当规定空间用尽的时候，会优先淘汰最近访问次数很低的数据；<br>优点：使用Count-Min Sketch算法存储访问频率，极大的节省空间；定期衰减操作，应对访问模式变化；并且使用window-lru机制能够尽可能避免缓存污染的发生，在过滤器内部会进行筛选处理，避免低频数据置换高频数据。<br>缺点: 实现复杂。<br>关于Count-Min Sketch算法，可以看作是布隆过滤器的同源的算法，假如我们用一个hashmap来存储每个元素的访问次数，那这个量级是比较大的，并且hash冲突的时候需要做一定处理，否则数据会产生很大的误差，Count-Min Sketch算法将一个hash操作，扩增为多个hash，这样原来hash冲突的概率就降低了几个等级，且当多个hash取得数据的时候，取最低值，也就是Count Min的含义所在。</p>
+<p>下图展示了Count-Min Sketch算法简单的工作原理：</p>
+<ul>
+<li>假设有四个hash函数，每当元素被访问时，将进行次数加1；</li>
+<li>此时会按照约定好的四个hash函数进行hash计算找到对应的位置，相应的位置进行+1操作；</li>
+<li>当获取元素的频率时，同样根据hash计算找到4个索引位置；</li>
+<li>取得四个位置的频率信息，然后根据Count Min取得最低值作为本次元素的频率值返回，即Min(Count);</li>
+</ul>
+<p><img src="assets/20200919112318270.png" alt="20200919112318270"></p>
+<h3 id="CRDT-amp-amp-BRT设计"><a href="#CRDT-amp-amp-BRT设计" class="headerlink" title="CRDT &amp;&amp; BRT设计"></a>CRDT &amp;&amp; BRT设计</h3><p><img src="assets/crdt_statespace.png" alt="crdt_statespace"></p>
+<p>统一概念和名词:</p>
+<ul>
+<li>object: 可以理解为“副本”</li>
+<li>operation: 操作接口，由客户端调用，分为两种，读操作query和写操作update</li>
+<li>query: 查询操作，仅查询本地副本</li>
+<li>update: 更新操作，先尝试进行本地副本更新，若更新成功则将本地更新同步至远端副本</li>
+<li>merge: update在远端副本的合并操作</li>
+</ul>
+<p>一个数据结构符合CRDT的条件是update操作和merge操作需满足交换律、结合律和幂等律，如果update操作本身满足以上三律，merge操作仅需要对update操作进行回放即可，这种形式称为op-based CRDT，最简单的例子是集合求并集。</p>
+<p><img src="assets/crdt_partial_order.png" alt="crdt_partial_order"></p>
+<p>如果update操作无法满足条件，则可以考虑同步副本数据，同时附带额外元信息，通过元信息让update和merge操作具备以上三律，这种形式称为state-based CRDT。让元信息满足条件的方式是让其更新保持单调，这个关系一般被称为偏序关系。举一个简单例子，每次update操作都带上时间戳，在merge时对本地副本时间戳及同步副本时间戳进行比对，取更新的结果，这样总能保证结果最新并且最终一致，这种方式称为Last Write Wins。</p>
+<p><img src="assets/crdt_merge.png" alt="crdt_merge"></p>
+<p>merge操作如图所示</p>
+<h3 id="Byzantine-Fault-Tolerant-Eventually-Consistent-Algorithms"><a href="#Byzantine-Fault-Tolerant-Eventually-Consistent-Algorithms" class="headerlink" title="Byzantine Fault Tolerant Eventually Consistent Algorithms"></a>Byzantine Fault Tolerant Eventually Consistent Algorithms</h3><ol>
+<li>网络层：该存储库中实现的网络层是一个模拟的内存网络，假设数据包可靠地传递（没有数据包丢失）并且以任何顺序（不一定是它们产生的顺序）。在生产部署中，网络层需要适应现实世界中的网络约束以及由此带来的所有复杂性。</li>
+<li>安全广播：在操作上类似于两阶段提交。它的不同之处在于底层算法决定了并行性的级别。安全广播直接施加的唯一约束是，参与者生成的操作按照参与者创建操作的顺序进行处理（原顺序）。下面是安全广播算法的序列图，左侧为进程状态的变化。</li>
+</ol>
+<p><img src="assets/secure_broadcast_seq_diag.png" alt="secure_broadcast_seq_diag"></p>
+<p>下面为更直观的图：</p>
+<p><img src="assets/onion_layers.png" alt="onion_layers"></p>
+<p>在节点上广播参考了Golang的三色GC标记法，绿色的部分最终扩散到所有节点，就可以保证最终一致性。</p>
+<h2 id="测试和结果"><a href="#测试和结果" class="headerlink" title="测试和结果"></a>测试和结果</h2><p>直接 Cargo run 即可。</p>
+<pre class="line-numbers language-none"><code class="language-none">    Finished dev [unoptimized + debuginfo] target(s) in 0.08s
+     Running &#96;target&#x2F;debug&#x2F;HierarchicalCache&#96;
+Evict item.  k&#x3D;2, v&#x3D;2
+Item is inserted. i: 0
+Item is inserted. i: 1
+Item is inserted. i: 2
+Item is inserted. i: 3
+Item is inserted. i: 4
+Item is inserted. i: 5
+Item is inserted. i: 6
+Item is inserted. i: 7
+Item is inserted. i: 8
+Item is inserted. i: 9
+Evict item.  k&#x3D;6, v&#x3D;6
+Item is rejected. i: 10
+Item is inserted. i: 11
+Evict item.  k&#x3D;3, v&#x3D;3
+Item is rejected. i: 12
+Item is inserted. i: 13
+Evict item.  k&#x3D;13, v&#x3D;13
+Item is rejected. i: 14
+Item is inserted. i: 15
+Evict item.  k&#x3D;4, v&#x3D;4
+Item is rejected. i: 16
+Item is inserted. i: 17
+Evict item.  k&#x3D;11, v&#x3D;11
+Item is rejected. i: 18
+Item is inserted. i: 19
+Evict item.  k&#x3D;7, v&#x3D;7
+Item is rejected. i: 20
+Item is inserted. i: 21
+Evict item.  k&#x3D;0, v&#x3D;0
+Item is rejected. i: 22
+Item is inserted. i: 23
+Evict item.  k&#x3D;19, v&#x3D;19
+Item is rejected. i: 24
+Item: k: 21, v: 21
+Item: k: 1, v: 1
+Item: k: 2, v: 2
+Item: k: 17, v: 17
+Item: k: 15, v: 15
+Item: k: 5, v: 5
+Item: k: 9, v: 9
+Item: k: 23, v: 23
+Item: k: 8, v: 8
+
+Cache metrics. Metrics &#123; hits: 4, misses: 1, keys_inserted: 20, keys_updated: 2, keys_evicted: 8 &#125;
+Some((42, 0))Single insert and query!!Insert1 Done!
+Insert2 Done!
+Insert1 Done!
+Insert1 Done!
+Insert1 Done!
+Insert2 Done!
+Insert2 Done!
+Insert2 Done!
+1
+(0, 1)
+1
+(1, 1)
+1
+(2, 1)
+1
+(3, 1)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+            <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
+            <audio id="audio" loop="1" preload="auto" controls="controls"
+                data-autoplay="false">
+                <source type="audio/mpeg" src="">
+            </audio>
+            
+            <ul id="audio-list" style="display:none">
+                
+                
+                <li title='0' data-url='/statics/chengdu.mp3'></li>
+                
+                    
+            </ul>
+            
+            
+            <div class="post-nav">
+                <hr>
+                
+                    <div class="post-nav-item">Previous Post:<a href="/2021/05/14/Paxos/" rel="prev" 
+                        title="Paxos">Paxos
+                      </a></div>
+                
+                
+                    <div class="post-nav-item">Next Post:<a href="/2021/03/23/Register-base-go-stack/" rel="next" 
+                        title="Register Base Go ABI">Register Base Go ABI</a></div>
+                                
+            </div>   
+                        
+            
+            
+    <div id='gitalk-container' class="comment link"
+        data-ae='true'
+        data-ci='ec894e2b66f752e8b7fb'
+        data-cs='3ccc2e92bb350688fe2c2dc2930189b62622bfb1'
+        data-r='blog-comments'
+        data-o='TriDiamond'
+        data-a='TriDiamond'
+        data-d=''
+    >Comments</div>
+
+
+            
+            
+        </div>
+        <div class="sidebar">
+            <div class="box animated fadeInRight">
+                <div class="subbox">
+                    <img src="https://res.cloudinary.com/tridiamond/image/upload/v1573019751/TriDiamond_logo_ui_xeublz.jpg" height=300 width=300></img>
+                    <p>Huanbing Lu</p>
+                    <span>Talk is cheap, show me the code!</span>
+                    <dl>
+                        <dd><a href="https://github.com/TriDiamond" target="_blank"><span
+                                    class=" iconfont icon-github"></span></a></dd>
+                        <dd><a href="https://twitter.com/TriDiamond6" target="_blank"><span
+                                    class=" iconfont icon-twitter"></span></a></dd>
+                        <dd><a href="https://stackoverflow.com/users/7602324/tridiamond?tab=profile" target="_blank"><span
+                                    class=" iconfont icon-stack-overflow"></span></a></dd>
+                    </dl>
+                </div>
+                <ul>
+                    <li><a href="/">4 <p>Articles</p></a></li>
+                    <li><a href="/categories">0 <p>Categories</p></a></li>
+                    <li><a href="/tags">0 <p>Tags</p></a></li>
+                </ul>
+            </div>
+            
+            
+            
+            <div class="box sticky animated fadeInRight faster">
+                <div id="toc" class="subbox">
+                    <h4>Contents</h4>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#OpenEuler-%E6%AF%94%E8%B5%9B-%E5%88%86%E5%B8%83%E5%BC%8F%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">OpenEuler 比赛-分布式缓存设计与实现</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E8%83%8C%E6%99%AF"><span class="toc-number">1.1.</span> <span class="toc-text">项目背景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%93%E5%AD%98%E7%AE%97%E6%B3%95%E8%83%8C%E6%99%AF"><span class="toc-number">1.1.1.</span> <span class="toc-text">缓存算法背景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%93%E5%AD%98%E6%9C%BA%E5%88%B6"><span class="toc-number">1.1.2.</span> <span class="toc-text">缓存机制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%93%E5%AD%98%E5%88%86%E7%B1%BB%E5%92%8C%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">1.1.3.</span> <span class="toc-text">缓存分类和应用场景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98"><span class="toc-number">1.1.4.</span> <span class="toc-text">本地缓存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98"><span class="toc-number">1.1.5.</span> <span class="toc-text">常用本地缓存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%88%86%E5%B8%83%E5%BC%8F%E7%BC%93%E5%AD%98"><span class="toc-number">1.1.6.</span> <span class="toc-text">常用分布式缓存</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8A%9F%E8%83%BD%E6%8F%8F%E8%BF%B0"><span class="toc-number">1.2.</span> <span class="toc-text">功能描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B7%E4%BD%93%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.3.</span> <span class="toc-text">具体设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ConcurrentHashMap"><span class="toc-number">1.3.1.</span> <span class="toc-text">ConcurrentHashMap</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#WtinyLFU"><span class="toc-number">1.3.2.</span> <span class="toc-text">WtinyLFU</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CRDT-amp-amp-BRT%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.3.3.</span> <span class="toc-text">CRDT &amp;&amp; BRT设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Byzantine-Fault-Tolerant-Eventually-Consistent-Algorithms"><span class="toc-number">1.3.4.</span> <span class="toc-text">Byzantine Fault Tolerant Eventually Consistent Algorithms</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E5%92%8C%E7%BB%93%E6%9E%9C"><span class="toc-number">1.4.</span> <span class="toc-text">测试和结果</span></a></li></ol></li></ol>
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</div>
+
+    </div>
+</div>
+    <div id="back-to-top" class="animated fadeIn faster">
+        <div class="flow"></div>
+        <span class="percentage animated fadeIn faster">0%</span>
+        <span class="iconfont icon-top02 animated fadeIn faster"></span>
+    </div>
+</body>
+<footer>
+    <p class="copyright" id="copyright">
+        &copy; 2021
+        <span class="gradient-text">
+            Huanbing Lu
+        </span>.
+        Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a>
+        Theme
+        <span class="gradient-text">
+            <a href="https://github.com/TriDiamond/hexo-theme-obsidian" title="Obsidian" target="_blank" rel="noopener">Obsidian</a>
+        </span>
+        <small><a href="https://github.com/TriDiamond/hexo-theme-obsidian/blob/master/CHANGELOG.md" title="v1.4.5" target="_blank" rel="noopener">v1.4.5</a></small>
+    </p>
+</footer>
+
+<script type="text/javascript" src="https://cdn.bootcss.com/mathjax/2.7.6/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script>
+  MathJax.Hub.Config({
+    "HTML-CSS": {
+      preferredFont: "TeX",
+      availableFonts: ["STIX", "TeX"],
+      linebreaks: {
+        automatic: true
+      },
+      EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50)
+    },
+    tex2jax: {
+      inlineMath: [
+        ["$", "$"],
+        ["\\(", "\\)"]
+      ],
+      processEscapes: true,
+      ignoreClass: "tex2jax_ignore|dno",
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      noUndefined: {
+        attributes: {
+          mathcolor: "red",
+          mathbackground: "#FFEEEE",
+          mathsize: "90%"
+        }
+      },
+      Macros: {
+        href: "{}"
+      }
+    },
+    messageStyle: "none"
+  });
+</script>
+<script>
+  function initialMathJax() {
+    MathJax.Hub.Queue(function () {
+      var all = MathJax.Hub.getAllJax(),
+        i;
+      // console.log(all);
+      for (i = 0; i < all.length; i += 1) {
+        console.log(all[i].SourceElement().parentNode)
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+    });
+  }
+
+  function reprocessMathJax() {
+    if (typeof MathJax !== 'undefined') {
+      MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+    }
+  }
+</script>
+
+
+ 
+<link rel="stylesheet" href="//cdn.bootcss.com/gitalk/1.5.0/gitalk.min.css">
+ 
+<script src="//cdn.bootcss.com/gitalk/1.5.0/gitalk.min.js"></script>
+  
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="/js/plugin.js"></script>
+<script src="/js/obsidian.js"></script>
+<script src="/js/jquery.truncate.js"></script>
+<script src="/js/search.js"></script>
+ 
+<script src="//cdn.bootcss.com/typed.js/2.0.10/typed.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+ 
+<script src="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/js/social-share.min.js"></script>
+
+
+<script src="https://cdn.bootcss.com/codemirror/5.48.4/codemirror.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/javascript/javascript.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/css/css.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/xml/xml.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/htmlmixed/htmlmixed.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/clike/clike.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/php/php.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/shell/shell.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/python/python.min.js"></script>
+   
+<script src="/js/busuanzi.min.js"></script>
+
+<script>
+  $(document).ready(function () {
+    if ($('span[id^="busuanzi_"]').length) {
+      initialBusuanzi();
+    }
+  });
+</script>
+ 
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.css">
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/default-skin/default-skin.min.css">
+
+
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.js"></script>
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe-ui-default.min.js"></script>
+
+
+<!-- Root element of PhotoSwipe. Must have class pswp. -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+    <!-- Background of PhotoSwipe. 
+         It's a separate element as animating opacity is faster than rgba(). -->
+    <div class="pswp__bg"></div>
+    <!-- Slides wrapper with overflow:hidden. -->
+    <div class="pswp__scroll-wrap">
+        <!-- Container that holds slides. 
+            PhotoSwipe keeps only 3 of them in the DOM to save memory.
+            Don't modify these 3 pswp__item elements, data is added later on. -->
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+        <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+        <div class="pswp__ui pswp__ui--hidden">
+            <div class="pswp__top-bar">
+                <!--  Controls are self-explanatory. Order can be changed. -->
+                <div class="pswp__counter"></div>
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+                <!-- Preloader demo http://codepen.io/dimsemenov/pen/yyBWoR -->
+                <!-- element will get class pswp__preloader--active when preloader is running -->
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                      <div class="pswp__preloader__cut">
+                        <div class="pswp__preloader__donut"></div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div> 
+            </div>
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+ 
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="//www.googletagmanager.com/gtag/js?id=UA-149874671-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag('js', new Date());
+
+  gtag('config', 'UA-149874671-1');
+</script>
+ 
+
+<script>
+  function initialTyped() {
+    var typedTextEl = $('.typed-text');
+    if (typedTextEl && typedTextEl.length > 0) {
+      var typed = new Typed('.typed-text', {
+        strings: ['Talk is cheap, show me the code!', '纸上得来终觉浅，绝知此事要躬行。'],
+        typeSpeed: 90,
+        loop: true,
+        loopCount: Infinity,
+        backSpeed: 20,
+      });
+    }
+  }
+
+  if ($('.article-header') && $('.article-header').length) {
+    $(document).ready(function () {
+      initialTyped();
+    });
+  }
+</script>
+
+
+
+
+ <!-- 例：百度统计 --> <script> var _hmt = _hmt || []; (function() { var hm = document.createElement("script"); hm.src = "https://hm.baidu.com/hm.js?your_code"; var s = document.getElementsByTagName("script")[0];  s.parentNode.insertBefore(hm, s); })(); </script> 
+
+</html>
