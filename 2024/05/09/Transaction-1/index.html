@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>数据库事务模型分析（1）—— 计算模型 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="事务服务的计算模型可以通过多种方法精确创建，和抽象程度有关，而建模数据库事务服务的系统需要遵循一些基本的方法论以及相关实际因素，本系列所作的建模一般分为以下5个步骤：  首先定义数据对象的基础操作，这些操作被认为是原子的，并且独立于其他操作，这一步并没有明确定义什么是数据对象以及需要考虑什么类型数据的基础操作。因此本系列定义两种不同的计算模型：页模型和对象模型； 对事务以及事务执行顺序建模，将其视"><meta property="og:type" content="blog"><meta property="og:title" content="数据库事务模型分析（1）—— 计算模型"><meta property="og:url" content="https://devillove084.github.io/2024/05/09/Transaction-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="事务服务的计算模型可以通过多种方法精确创建，和抽象程度有关，而建模数据库事务服务的系统需要遵循一些基本的方法论以及相关实际因素，本系列所作的建模一般分为以下5个步骤：  首先定义数据对象的基础操作，这些操作被认为是原子的，并且独立于其他操作，这一步并没有明确定义什么是数据对象以及需要考虑什么类型数据的基础操作。因此本系列定义两种不同的计算模型：页模型和对象模型； 对事务以及事务执行顺序建模，将其视"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/images/tx1.png"><meta property="article:published_time" content="2024-05-09T16:35:12.000Z"><meta property="article:modified_time" content="2024-05-09T18:43:52.161Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="transaction"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/images/tx1.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2024/05/09/Transaction-1/"},"headline":"数据库事务模型分析（1）—— 计算模型","image":["https://devillove084.github.io/images/tx1.png"],"datePublished":"2024-05-09T16:35:12.000Z","dateModified":"2024-05-09T18:43:52.161Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"事务服务的计算模型可以通过多种方法精确创建，和抽象程度有关，而建模数据库事务服务的系统需要遵循一些基本的方法论以及相关实际因素，本系列所作的建模一般分为以下5个步骤：  首先定义数据对象的基础操作，这些操作被认为是原子的，并且独立于其他操作，这一步并没有明确定义什么是数据对象以及需要考虑什么类型数据的基础操作。因此本系列定义两种不同的计算模型：页模型和对象模型； 对事务以及事务执行顺序建模，将其视"}</script><link rel="canonical" href="https://devillove084.github.io/2024/05/09/Transaction-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.loli.net/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.1.1"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2024-05-09T16:35:12.000Z" title="5/9/2024, 4:35:12 PM">2024-05-09</time>发表</span><span class="level-item"><time dateTime="2024-05-09T18:43:52.161Z" title="5/9/2024, 6:43:52 PM">2024-05-09</time>更新</span><span class="level-item">19 分钟读完 (大约2894个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">数据库事务模型分析（1）—— 计算模型</h1><div class="content"><p>事务服务的计算模型可以通过多种方法精确创建，和抽象程度有关，而建模数据库事务服务的系统需要遵循一些基本的方法论以及相关实际因素，本系列所作的建模一般分为以下5个步骤：</p>
+<ol>
+<li>首先定义数据对象的基础操作，这些操作被认为是原子的，并且独立于其他操作，这一步并没有明确定义什么是数据对象以及需要考虑什么类型数据的基础操作。<strong>因此本系列定义两种不同的计算模型：页模型和对象模型</strong>；</li>
+<li>对事务以及事务执行顺序建模，将其视为在数据对象上基础操作的一个（全&#x2F;偏）序列；</li>
+<li>本系列使用<strong>调度</strong>或者<strong>历史</strong>的概念作为对事务执行并发的抽象；</li>
+<li>在所有句法正确的调度中，必须从中识别出保证ACID“正确”的调度；</li>
+<li>需要“算法”或者“协议”来即时地创建事务正确的调度，当事务提交之后，可以被动态执行；</li>
+</ol>
+<p>上述的“页模型”是一个非常简单的模型，可以观察在存储层中，数据页是如何被事务优雅的读写的。接下来可以看到这个模型以一种非常优雅的方式建模了<strong>并发控制</strong>和<strong>事务恢复</strong>的实现，并且可以描述非常多（但不是全部）系统实现中的重要语义。<br>“对象模型”是预留给数据库的上层操作，比如访问层或者查询处理层的操作，很容易想到把上层数据应用的业务数据对象考虑在内，可以推导出更复杂的对抽象数据结构ADT的语义，借由ADT来执行下层数据对象的操作。</p>
+<h2 id="页模型"><a href="#页模型" class="headerlink" title="页模型"></a>页模型</h2><p>定义页模型基于一个基本假设：</p>
+<blockquote>
+<p>所有对数据的高层操作都会转化为对数据页的读写操作，并且假设每个页的操作都是不可分的，无论是内存还是在硬盘上。</p>
+</blockquote>
+<p>在用页模型给出事务的一般定义之前，先看一个简化的版本，把事务看作具有全序关系的一组操作步骤，而一般页模型允许偏序关系：<br>一个事务$t$(在页模型中)是形如$r(x)$或者$w(x)$的操作步骤的<strong>有限序列</strong>，记作：</p>
+<p>$$<br>t &#x3D; p_1…p_n<br>$$<br>其中，$n &lt; \infty$, 对于$1 \leq i \leq n$，$x \in D$，有$p_i \in {r(x), w(x)}$，这样就从事务执行的细节中抽象出事务执行的读写序列了。</p>
+<p>在同一个事务中，操作步骤由$p_i$表示，即事务中第$i$步操作，存在多个事务的情况下，可以给每个事务添加一个唯一的事务id，作为步骤的另外一个下标，$p_{ij}$就代表了第$i$个事务的第$j$步，但是在页模型中为了简化问题，可以简单的从上下文推断出第几步，因此不显式给出步数。<br>只考虑一个事务，可以表示为：<br>$$<br>p_j &#x3D; r&#x2F;w(x): 事务第j步读&#x2F;写页数据<br>$$</p>
+<p>实际上，无需把一个事务的所有步骤排成一个严格先后执行的序列，可以放松对事务执行步骤全序的要求，接下来定义事务的偏序：<br>设$A$为任意一个集合，$R \subseteq A \times A$，如果对于任意的元素$a, b, c \in A$，下面三个关系都满足，则称关系$R$是集合$A$上的一个偏序：</p>
+<ul>
+<li>$(a, a) \in R$ 自反性</li>
+<li>$(a, b) \in R \wedge (b,a) \in R \Rightarrow a &#x3D; b 反对称性$</li>
+<li>$(a, b) \in R \wedge (b,c) \in R \Rightarrow (a,c) \in R 传递性$</li>
+</ul>
+<p><strong>偏序是全序的一个特例</strong>，全序在偏序的定义上又增强了约束，即对于任意两个不同的元素$a, b \in A$，或者$(a,b) \in R$或者$(b,a) \in R$，也就是说对两个不同的数据操作在事务集合中的顺序满足唯一约束。</p>
+<p>下面根据偏序定义可以给出在页模型下的事务定义：<br>一个事务$t$是具体有$r(x)$或$w(x)$形式的多个操作步骤的<strong>偏序集合</strong>，其中$x \in D$，对同一个页数据的读写操作和写写操作是有序的，正式的，事务可以表示为一个二元组：<br>$$<br>t&#x3D;(op, &lt;)<br>$$</p>
+<p>其中，$op$是具有$r(x)$或者$w(x)$的有限集合，$x \in D$且$x&lt; \subseteq op \times op$是在$op$集合上的偏序关系，如果${p,q} \subseteq op$且$p, q$都对同一个页数据项进行访问，且$p,q$是少有一个是写操作，则有$p &lt; q \wedge q &lt; p$。</p>
+<p>根据页事务模型的数学定义可推理出，偏序关系下，不允许同一数据项的读写操作或者写写操作乱序。</p>
+<h2 id="对象模型"><a href="#对象模型" class="headerlink" title="对象模型"></a>对象模型</h2><p>对象模型可以认为是页模型的替代或者推广，实际上，页模型是隐含在对象模型中。对象模型提供了一个表达在任意类型对象上进行的操作框架，而处于提高性能的需要，可能还需要利用被调用操作的语义。实际上，在一个对象及其操作的实现过程中，是需要调用底层对象的操作。</p>
+<p><img src="/images/tx1.png" alt="对象模型"></p>
+<p>例如在数据库访问层中，比如索引查找，需要调用存储层面向页的操作，类似的调用层次还在业务对象集合中。上图中描述了一个事务，标记为$t_1$，执行了一个SQL的Select语句，从数据库中获取所有名叫“tom”的人员信息，在获取结果后，执行一个SQL语句插入一个新信息。</p>
+<p>SQL语句在SQL引擎侧已经被转化为查询处理层的操作。在这个例子中，假设包含两个记录$x$和$y$，查询操作调用存储层的读写页操作。这里假设要读B+树的根节点，并且简单起见，只有两层。叶子节点标记为$l$，其中包含所有符合“tom”的列表，通过主键获取满足条件的记录$x$和$y$，访问每个记录各需要一次页读取，页分别记为$p$和$q$，最后还需要调用一个SQL的Insert语句插入新的信息：首先读取存储层的元数据页，找到有足够空闲的页$p$，读取页$p$，把要插入的记录写入，然后写回该页，最后还要在索引上把新记录的主键加入到B+树上名字叫“tom”的列表中。</p>
+<p>上述例子中，实际上是<strong>把事务看作一棵树</strong>，而被调用的操作作为树节点，为了保证事务树是独立的并且允许严格推理，要求事务树的叶节点必须是页模型的基本读写操作。如果一个给定事务树的叶节点全部或者部分与页读写不对应，唯一能做的就是扩展这棵树把叶子节点全部变成页读写操作。</p>
+<p>而这种扩展是动态的，跟踪在执行过程中一个高级事务中的所有低级数据操作，而不是从操作的静态结构生成的一个调用层次图。而跟踪一个事务内部操作的顺序，一种简单的方法就是给所有的叶节点确定一个顺序，和上述图中<strong>从左到右</strong>的事务顺序一致。所以像页模型一样，也同样<strong>要求事务树的所有叶节点保持偏序关系</strong>。</p>
+<p>现在可以正式给出对象模型事务的定义：<br>一个事务$t$是一棵有限树，节点进行如下标记：</p>
+<ul>
+<li>事务标识符来标记根节点；</li>
+<li>被调用操作的名称和参数标记内部非叶非根节点；</li>
+<li>页模型的读写操作标记叶子节点；<br>在叶子节点上定义了偏序关系“$&lt;$”，使得所有的叶子节点操作$p,q$，<strong>其中$p$形如$w(x)$, q形如$r(x) \wedge w(x)$，或相反</strong>，都满足$p &lt; q \vee q &lt; p$。</li>
+</ul>
+<p>对象模型中事务对应的树不一定是平衡的，也就是说从根节点到所有叶子节点的路径不一定是等长的，而为了清晰起见，讨论问题时把属于同样对象操作类型或者接口的操作放在事务树的同层，所以当后续利用对象模型考虑并发执行时，经常放在完全平衡的事务树中。</p>
+<blockquote>
+<p>这种事务树所有叶节点到根节点的路径是等长的，成为分层事务或者多级事务。</p>
+</blockquote>
+<p>在上述的讨论中，有一个问题被忽略了，偏序只在树的叶子节点被提及和定义。内部节点的顺序实际上在叶子节点被约束后已经被隐式定义了。例如，对两个内部节点操作$a$和$b$，如果在叶子节点偏序“&lt;”下，$a$节点下的所有后代叶子节点先于$b$节点下的所有后代叶子节点处理，则称$a$先于$b$，这需要后代叶子节点集合之间有序，<strong>否则称$a$和$b$是并发操作</strong>。如果想找到中间节点对存储引擎的数据影响，可以检查其子女节点以及更远后代之间的交叉情况，直到叶子节点，其中的偏序关系保证了数据解释的明确性。</p>
+<p>最后简要的阐述后续系列如何使用引入的对象模型作为高级并发控制算法的基础来结束本节。当考虑多个事务以并发或者并行的方式执行时，要把所有的事务树组合，形成一个操作的森林，然后检查叶子节点之间的偏序关系，以及隐含推导出来的高层操作顺序。与单层事务不同的是，需要在所有事务树的所有叶子节点集合上来定义偏序关系。而由于内部节点之间的顺序可以由叶子节点的偏序关系推导，可以研究高层节点之间的并发或者并行。<strong>而增强事务性能的关键，是高层内部节点操作的语义特性纳入事务调度的考虑范围</strong>。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>数据库事务模型分析（1）—— 计算模型</p><p><a href="https://devillove084.github.io/2024/05/09/Transaction-1/">https://devillove084.github.io/2024/05/09/Transaction-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2024-05-09</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2024-05-09</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/transaction/">transaction</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2024/05/04/DuckDB-1/"><span class="level-item">DuckDB-源码分析（1）背景与应用</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.loli.net/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2024 devillove084</span>  Powered by <a href="https://devillove084.xyz/" target="_blank" rel="noopener">Database</a> &amp; <a href="https://en.wikipedia.org/wiki/Open_source" target="_blank" rel="noopener">Open source</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.loli.net/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.loli.net/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.loli.net/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.loli.net/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.loli.net/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.loli.net/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.loli.net/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.loli.net/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.loli.net/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.loli.net/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.loli.net/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
