@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>C++调试（1）—— 认识Dwarf格式 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="DWARF全称为“Debugging With Attributed Record Formats”，其设计初衷是为了配合ELF格式进行UNIX可执行文件的调试信息生成。DWARF调试信息主要面向开发者用以指导如何生成调试信息以及如何使用调试信息。比如编译器、链接器开发者需要参考DWARF来生成调试信息，而调试器开发者需要参考DWARF来使用调试信息。DWARF开始时主要是为 UNIX 下的调试器"><meta property="og:type" content="blog"><meta property="og:title" content="C++调试（1）—— 认识Dwarf格式"><meta property="og:url" content="https://devillove084.github.io/2024/06/15/Debug-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="DWARF全称为“Debugging With Attributed Record Formats”，其设计初衷是为了配合ELF格式进行UNIX可执行文件的调试信息生成。DWARF调试信息主要面向开发者用以指导如何生成调试信息以及如何使用调试信息。比如编译器、链接器开发者需要参考DWARF来生成调试信息，而调试器开发者需要参考DWARF来使用调试信息。DWARF开始时主要是为 UNIX 下的调试器"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/images/dwarf1.png"><meta property="og:image" content="https://devillove084.github.io/images/dsym.png"><meta property="article:published_time" content="2024-06-15T14:12:34.000Z"><meta property="article:modified_time" content="2024-06-15T17:09:42.456Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="debug"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/images/dwarf1.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2024/06/15/Debug-1/"},"headline":"C++调试（1）—— 认识Dwarf格式","image":["https://devillove084.github.io/images/dwarf1.png","https://devillove084.github.io/images/dsym.png"],"datePublished":"2024-06-15T14:12:34.000Z","dateModified":"2024-06-15T17:09:42.456Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"DWARF全称为“Debugging With Attributed Record Formats”，其设计初衷是为了配合ELF格式进行UNIX可执行文件的调试信息生成。DWARF调试信息主要面向开发者用以指导如何生成调试信息以及如何使用调试信息。比如编译器、链接器开发者需要参考DWARF来生成调试信息，而调试器开发者需要参考DWARF来使用调试信息。DWARF开始时主要是为 UNIX 下的调试器"}</script><link rel="canonical" href="https://devillove084.github.io/2024/06/15/Debug-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.lug.ustc.edu.cn/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.1.1"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2024-06-15T14:12:34.000Z" title="6/15/2024, 2:12:34 PM">2024-06-15</time>发表</span><span class="level-item"><time dateTime="2024-06-15T17:09:42.456Z" title="6/15/2024, 5:09:42 PM">2024-06-15</time>更新</span><span class="level-item">27 分钟读完 (大约4060个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">C++调试（1）—— 认识Dwarf格式</h1><div class="content"><p>DWARF全称为“Debugging With Attributed Record Formats”，其设计初衷是为了配合ELF格式进行UNIX可执行文件的调试信息生成。DWARF调试信息主要面向开发者用以指导如何生成调试信息以及如何使用调试信息。比如编译器、链接器开发者需要参考DWARF来生成调试信息，而调试器开发者需要参考DWARF来使用调试信息。DWARF开始时主要是为 UNIX 下的调试器提供必要的调试信息，例如内存地址对应的文件名以及代码行号等信息。GCC和Clang以及Go和Rust都使用该格式生成调试信息，与该格式相对的，Windows平台使用PDB（Program Database）作为调试信息的主要格式。</p>
+<p>2017年，DWARF v5发布，提供了更好的数据压缩能力，调试信息与可执行程序的分离，对macro宏和源代码文件的更好的描述以及更快速的符号搜索、还有对编译器优化后代码的更好描述等等。</p>
+<span id="more"></span>
+
+<p><img src="/images/dwarf1.png" alt="DWARF格式"></p>
+<p>DWARF调试信息根据描述对象的不同，在最终存储到不同的section，section名称均以前缀.debug_开头。为了提升效率，对DWARF数据的大多数引用都是通过相对于当前编译单元的偏移量引用。</p>
+<p>常见的ELF sections及其存储的内容如下:</p>
+<ul>
+<li>.debug_abbrev, 存储.debug_info中使用的缩写信息；</li>
+<li>.debug_arranges, 存储一个加速访问的查询表，通过内存地址查询对应编译单元信息；</li>
+<li>.debug_frame, 存储调用栈帧信息；</li>
+<li>.debug_info, 存储核心DWARF数据，包含了描述变量、代码等的DIEs；</li>
+<li>.debug_line, 存储行号表程序 (程序指令由行号表状态机执行，执行后构建出完整的行号表)</li>
+<li>.debug_loc, 存储location描述信息；</li>
+<li>.debug_macinfo, 存储宏相关描述信息；</li>
+<li>.debug_pubnames, 存储一个加速访问的查询表，通过名称查询全局对象和函数；</li>
+<li>.debug_pubtypes, 存储一个加速访问的查询表，通过名称查询全局类型；</li>
+<li>.debug_ranges, 存储DIEs中引用的address ranges；</li>
+<li>.debug_str, 存储.debug_info中引用的字符串表，也是通过偏移量来引用；</li>
+<li>.debug_types, 存储描述数据类型相关的DIEs；</li>
+</ul>
+<p>符号级调试器需要两张大表，一个是行号表（Line Number Table），一个是调用栈信息表（Call Frame Information）。</p>
+<ul>
+<li><p>行号表, 将程序代码段的指令地址映射为源文件中的地址，如“源文件名:行号”。当然如果指定了源文件中的位置，也可以将其映射为程序代码段中的指令地址。</p>
+</li>
+<li><p>调用栈信息表, 它允许调试器根据指令地址来定位其在调用栈上的栈帧。</p>
+</li>
+</ul>
+<p>DWARF使用调试信息条目DIE（Debugging Information Entry）来表示每一个编译单元，也即变量、函数、指针等。每个DIE都包含一个tag（如DW_TAG_variable表示变量，DW_TAG_pointer_type表示指针类型，DW_TAG_subprogram表示一个函数等）以及一系列的attributes。每个DIE还可以包含子DIE，结合构成<strong>树结构</strong>共同描述一个变量、数据类型、函数、编译单元等不同的程序构造，DIE中的每个attribute可以引用另一个DIE（类似指针），例如一个描述变量的DIE，它会包含一个属性DW_AT_type来指向一个描述变量数据类型的DIE。</p>
+<h2 id="生成时机"><a href="#生成时机" class="headerlink" title="生成时机"></a>生成时机</h2><p><img src="/images/dsym.png" alt="DWARF生成"></p>
+<p>dSYM 文件和 DWARF 文件在编译时生成是根据链接动作中链接脚本下的符号解析与重定位构建。</p>
+<h2 id="DIE"><a href="#DIE" class="headerlink" title="DIE"></a>DIE</h2><p>具体的，每个DIE都包含一个标签（tag）以及一系列的属性（attributes），存储在.debug_info和.debug_types中：</p>
+<ul>
+<li>tag指明了当前调试信息条目描述的程序构造属于哪种类型，如类型、变量、函数、编译单元等；</li>
+<li>attribute定义了调试信息条目的一些特征，如函数的返回值类型是int类型。</li>
+</ul>
+<h3 id="基本类型描述"><a href="#基本类型描述" class="headerlink" title="基本类型描述"></a>基本类型描述</h3><p>DW_TAG_base_type，用来描述多种基本类型，包括：整数，地址，字符和浮点数。早期 DWARF 和其他调试信息格式，都假设编译器和调试器对基本类型的大小达成共识，例如int是8位，16位还是32位。但是对于不同的硬件平台和编程语言位宽不一致， DWARF v2以后提供了基础类型和具体硬件上实现的映射解决该问题。</p>
+<h3 id="复合类型描述"><a href="#复合类型描述" class="headerlink" title="复合类型描述"></a>复合类型描述</h3><p>DWARF支持通过组合或者链接其他基本数据类型来定义新的数据类型。TAG为DW_TAG_base_type，表示它是一个基本数据类型，具体为4字节有符号整数。</p>
+<h3 id="数组"><a href="#数组" class="headerlink" title="数组"></a>数组</h3><p>DW_TAG_array_type，结合一些相关attributes共同来描述数组，数组对应的DIE，该DIE包含了这样的一些属性来描述数组元素：</p>
+<ul>
+<li>DW_AT_ordering：描述数组是按照“行主序”还是按照“列主序”存储，如Fortran是按照列主序存储，C和C++是按照行主序存储。如果未指定该属性值，则使用DW_AT_language指定编程语言的默认数组排列规则；</li>
+<li>DW_AT_type：描述数组中各个元素的类型信息；</li>
+<li>DW_AT_byte_stride&#x2F;DW_AT_bit_stride：如果数组中每个元素的实际大小和分配的空间大小不同的话，可以通过这两个属性来说明；</li>
+</ul>
+<p>数组的索引值范围，DIE中也需要通过指定最小、最大索引值来给出一个有效的索引值区间。这样DWARF就可以既能够描述C风格的数组（用0作为数组起始索引），也能够描述Pascal和Ada的数组（其数组最小索引值、最大索引值是可以变化的）。数组维度一般是通过换一个TAG为DW_TAG_subrange_type或者DW_TAG_enumeration_type的DIE来描述。</p>
+<h3 id="类"><a href="#类" class="headerlink" title="类"></a>类</h3><p>组合多种不同的数据类型来定义一个新的数据类型是编程语言的基本功能，DWARF中分别使用下述tag来描述不同类型：</p>
+<ul>
+<li>DW_TAG_structure_type，描述结构体struct；</li>
+<li>DW_TAG_class_type，描述类class；</li>
+<li>DW_TAG_union_type，描述联合union；</li>
+<li>DW_TAG_interface_type，描述interface。</li>
+</ul>
+<p>如果class实例的大小在编译时可以确定，比如都是基础类型或者没有堆上指针，描述class的DIE就会多一个属性DW_AT_byte_size以描述类的大小。</p>
+<h3 id="变量"><a href="#变量" class="headerlink" title="变量"></a>变量</h3><p>DW_TAG_variable，用来描述变量，变量名代指存储变量值的内存位置，变量的类型描述了包含的值及其是否可以修改的修饰（例如const）。对变量进行区分的关键是变量的存储位置和作用域，变量可以被存储在全局数据区（.data section）、栈、堆或者寄存器中，变量的作用域，描述了它在程序中什么时候是可见的，某种程度上，变量作用域是由其声明时的位置确定的，在DWARF中通过三元组（文件名，行号，列号）对变量声明位置进行描述。</p>
+<h3 id="位置信息"><a href="#位置信息" class="headerlink" title="位置信息"></a>位置信息</h3><p>DWARF提供了一种非常通用的机制描述如何确定变量的数据位置，就是通过属性DW_AT_location，该属性允许指定一个操作序列，来告知调试器如何确定数据的位置。调试信息必须为调试器提供一种方法，使其能够查找程序变量的位置、确定动态数组和字符串的范围，以及能找到函数栈帧的基地址或函数返回地址的方法。</p>
+<p>而位置信息描述可以分为两类：</p>
+<ul>
+<li>位置表达式，是与语言无关的寻址规则表示形式，它是由一些基本构建块、操作序列组合而成的任意复杂度的寻址规则。 只要对象的生命周期是静态或与拥有它的词法块相同，并且在整个生命周期内都不会移动，它们就足以描述任何对象的位置。</li>
+<li>位置列表，用于描述生命周期有限的对象或在整个生命周期内可能会更改位置的对象。</li>
+</ul>
+<blockquote>
+<p>位置表达式由零个或多个位置操作组成。 如果没有位置运算表达式，则表示该对象在源代码中存在，但是在目标代码中不存在，可能是由于编译器优化导致的。</p>
+</blockquote>
+<h3 id="可执行描述"><a href="#可执行描述" class="headerlink" title="可执行描述"></a>可执行描述</h3><p>DW_TAG_subprogram用来描述函数:</p>
+<ul>
+<li>函数DIE具有属性 DW_AT_low_pc、DW_AT_high_pc，以给出函数占用的内存地址空间的上下界。 函数的内存地址可能是连续的，也可能不是连续的。如果不连续，则会有一个内存范围列表。一般DW_AT_low_pc的值为函数入口点地址，除非明确指定了另一个地址；</li>
+<li>函数的返回值类型由属性 DW_AT_type 描述。 如果没有返回值，则此属性不存在。如果在此函数的相同范围内定义了返回类型，则返回类型DIE将作为此函数DIE的兄弟DIE；</li>
+<li>函数可能具有零个或多个形式参数，这些参数由DIE DW_TAG_formal_parameter 描述，这些形参DIE的位置被安排在函数DIE之后，并且各形参DIE的顺序按照形参列表中出现的顺序；</li>
+<li>函数主体可能包含局部变量，这些变量由DIE DW_TAG_variables 在形参DIE之后列出。</li>
+</ul>
+<h3 id="编译单元"><a href="#编译单元" class="headerlink" title="编译单元"></a>编译单元</h3><p>在生成程序时，多个源文件都被视为一个独立的编译单元，并被编译为独立的*.o文件（例如C），然后链接器会将这些目标文件、系统特定的启动代码、系统库链接在一起以生成完整的可执行程序。DWARF中采用了C语言中的术语编译单元（compilation unit）作为DIE的名称 DW_TAG_compilation_unit。DIE包含有关编译的常规信息，包括源文件对应的目录和文件名、使用的编程语言、DWARF信息的生产者，以及有助于定位行号和宏信息的偏移量等等。</p>
+<p>如果编译单元占用了连续的内存（即，它会被装入一个连续的内存区域），那么该单元的低内存地址和高内存地址将有值，即低pc和高pc属性。 这有助于调试器更轻松地确定特定地址处的指令是由哪个编译单元生成的。</p>
+<p>如果编译单元占用的内存不连续，则编译器和链接器将提供代码占用的内存地址列表，每个编译单元都由一个“公共信息条目CIE（Common Information Entry）”表示，编译单元中除了CIE以外，还包含了一系列的帧描述条目FDE（Frame Description Entrie）。</p>
+<h2 id="其他信息"><a href="#其他信息" class="headerlink" title="其他信息"></a>其他信息</h2><p>除了这些内容以外，DWARF调试信息中还有几种非常重要的信息需要描述，符号级调试器非常依赖这些数据。这几种重要的调试信息主要包括：</p>
+<ol>
+<li>加速访问</li>
+</ol>
+<p>调试器经常需要根据符号名、类型名、指令地址，快速定位到对应的源代码行。DWARF为了加速查询，在DWARF信息生成的时候允许编译器额外创建3张表用来加速查询，加速符号名查询的.debug_pubnames，加速类型名查询的.debug_pubtypes（查询类型），加速指令地址查询的.debug_aranges。</p>
+<ol start="2">
+<li>行号表</li>
+</ol>
+<p>DWARF行号表，包含了可执行程序机器指令的内存地址和对应的源代码行之间的映射关系。</p>
+<ol start="3">
+<li>宏信息</li>
+</ol>
+<p>DWARF调试信息中包含了对程序中定义的宏的描述。这是非常基本的信息，但是调试器可以使用它来显示宏的值或将宏翻译成相应的源语言。</p>
+<ol start="4">
+<li>调用栈信息</li>
+</ol>
+<p>DWARF中的调用栈信息（Call Frame Information，CFI）为调试器提供了如下信息，函数是如何被调用的，如何找到函数参数，如何找到调用函数（caller）的栈帧信息。调试器借助CFI可以展开调用栈、查找上一个函数、确定当前函数的被调用位置以及传递的参数值。</p>
+<ol start="5">
+<li>变长数据</li>
+</ol>
+<p>DWARF定义了一种可变长度的整数，称为Little Endian Base 128（带符号整数为LEB128或无符号整数为ULEB128），LEB128可以压缩占用的字节来表示整数值以节省存储空间。</p>
+<ol start="6">
+<li>压缩DWARF数据</li>
+</ol>
+<h2 id="简单玩法"><a href="#简单玩法" class="headerlink" title="简单玩法"></a>简单玩法</h2><p>为了不编译和链接C++标准库依赖，简化示例，给出下列代码：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">foo</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> x + y;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="type">int</span> ans = <span class="built_in">foo</span>(<span class="number">1</span>, <span class="number">2</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">clang -O0 -gdwarf-5 test.cpp -o <span class="built_in">test</span> <span class="comment"># 生成dwarf和调试信息</span></span><br><span class="line">objdump --dwarf=info <span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>打出来的结果应该如下所示：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">test</span>:     file format elf64-x86-64</span><br><span class="line"></span><br><span class="line">Contents of the .debug_info section:</span><br><span class="line"></span><br><span class="line">  Compilation Unit @ offset 0:</span><br><span class="line">   Length:        0x66 (32-bit)</span><br><span class="line">   Version:       5</span><br><span class="line">   Unit Type:     DW_UT_compile (1)</span><br><span class="line">   Abbrev Offset: 0</span><br><span class="line">   Pointer Size:  8</span><br><span class="line"> &lt;0&gt;&lt;c&gt;: Abbrev Number: 1 (DW_TAG_compile_unit)</span><br><span class="line">    &lt;d&gt;   DW_AT_producer    : (indexed string: 0): Debian clang version 16.0.6 (27)</span><br><span class="line">    &lt;e&gt;   DW_AT_language    : 33        (C++14)</span><br><span class="line">    &lt;10&gt;   DW_AT_name        : (indexed string: 0x1): test.cpp</span><br><span class="line">    &lt;11&gt;   DW_AT_str_offsets_base: 0x8</span><br><span class="line">    &lt;15&gt;   DW_AT_stmt_list   : 0</span><br><span class="line">    &lt;19&gt;   DW_AT_comp_dir    : (indexed string: 0x2): /home/luhuanbing</span><br><span class="line">    &lt;1a&gt;   DW_AT_low_pc      : (index: 0): 0x1130</span><br><span class="line">    &lt;1b&gt;   DW_AT_high_pc     : 0x49</span><br><span class="line">    &lt;1f&gt;   DW_AT_addr_base   : 0x8</span><br><span class="line"> &lt;1&gt;&lt;23&gt;: Abbrev Number: 2 (DW_TAG_subprogram)</span><br><span class="line">    &lt;24&gt;   DW_AT_low_pc      : (index: 0): 0x1130</span><br><span class="line">    &lt;25&gt;   DW_AT_high_pc     : 0x12</span><br><span class="line">    &lt;29&gt;   DW_AT_frame_base  : 1 byte block: 56         (DW_OP_reg6 (rbp))</span><br><span class="line">    &lt;2b&gt;   DW_AT_linkage_name: (indexed string: 0x3): _Z3fooii</span><br><span class="line">    &lt;2c&gt;   DW_AT_name        : (indexed string: 0x4): foo</span><br><span class="line">    &lt;2d&gt;   DW_AT_decl_file   : 0</span><br><span class="line">    &lt;2e&gt;   DW_AT_decl_line   : 1</span><br><span class="line">    &lt;2f&gt;   DW_AT_type        : &lt;0x65&gt;</span><br><span class="line">    &lt;33&gt;   DW_AT_external    : 1</span><br><span class="line"> &lt;2&gt;&lt;33&gt;: Abbrev Number: 3 (DW_TAG_formal_parameter)</span><br><span class="line">    &lt;34&gt;   DW_AT_location    : 2 byte block: 91 7c      (DW_OP_fbreg: -4)</span><br><span class="line">    &lt;37&gt;   DW_AT_name        : (indexed string: 0x7): x</span><br><span class="line">    &lt;38&gt;   DW_AT_decl_file   : 0</span><br><span class="line">    &lt;39&gt;   DW_AT_decl_line   : 1</span><br><span class="line">    &lt;3a&gt;   DW_AT_type        : &lt;0x65&gt;</span><br><span class="line"> &lt;2&gt;&lt;3e&gt;: Abbrev Number: 3 (DW_TAG_formal_parameter)</span><br><span class="line">    &lt;3f&gt;   DW_AT_location    : 2 byte block: 91 78      (DW_OP_fbreg: -8)</span><br><span class="line">    &lt;42&gt;   DW_AT_name        : (indexed string: 0x8): y</span><br><span class="line">    &lt;43&gt;   DW_AT_decl_file   : 0</span><br><span class="line">    &lt;44&gt;   DW_AT_decl_line   : 1</span><br><span class="line">    &lt;45&gt;   DW_AT_type        : &lt;0x65&gt;</span><br><span class="line"> &lt;2&gt;&lt;49&gt;: Abbrev Number: 0</span><br><span class="line"> &lt;1&gt;&lt;4a&gt;: Abbrev Number: 4 (DW_TAG_subprogram)</span><br><span class="line">    &lt;4b&gt;   DW_AT_low_pc      : (index: 0x1): 0x1150</span><br><span class="line">    &lt;4c&gt;   DW_AT_high_pc     : 0x29</span><br><span class="line">    &lt;50&gt;   DW_AT_frame_base  : 1 byte block: 56         (DW_OP_reg6 (rbp))</span><br><span class="line">    &lt;52&gt;   DW_AT_name        : (indexed string: 0x6): main</span><br><span class="line">    &lt;53&gt;   DW_AT_decl_file   : 0</span><br><span class="line">    &lt;54&gt;   DW_AT_decl_line   : 5</span><br><span class="line">    &lt;55&gt;   DW_AT_type        : &lt;0x65&gt;</span><br><span class="line">    &lt;59&gt;   DW_AT_external    : 1</span><br><span class="line"> &lt;2&gt;&lt;59&gt;: Abbrev Number: 5 (DW_TAG_variable)</span><br><span class="line">    &lt;5a&gt;   DW_AT_location    : 2 byte block: 91 78      (DW_OP_fbreg: -8)</span><br><span class="line">    &lt;5d&gt;   DW_AT_name        : (indexed string: 0x9): ans</span><br><span class="line">    &lt;5e&gt;   DW_AT_decl_file   : 0</span><br><span class="line">    &lt;5f&gt;   DW_AT_decl_line   : 6</span><br><span class="line">    &lt;60&gt;   DW_AT_type        : &lt;0x65&gt;</span><br><span class="line"> &lt;2&gt;&lt;64&gt;: Abbrev Number: 0</span><br><span class="line"> &lt;1&gt;&lt;65&gt;: Abbrev Number: 6 (DW_TAG_base_type)</span><br><span class="line">    &lt;66&gt;   DW_AT_name        : (indexed string: 0x5): int</span><br><span class="line">    &lt;67&gt;   DW_AT_encoding    : 5        (signed)</span><br><span class="line">    &lt;68&gt;   DW_AT_byte_size   : 4</span><br><span class="line"> &lt;1&gt;&lt;69&gt;: Abbrev Number: 0</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>DWARF的基本概念为在程序编译的链接的符号重定向阶段对符号进行解析并生成对应的信息：</p>
+<ul>
+<li>程序被描述为“DIE节点构成的树”，抽象表示源码中的各种函数、数据和类型；</li>
+<li>行号表提供了可执行指令地址和生成它们的源码之间的映射关系；</li>
+<li>CFI描述了如何虚拟地展开堆栈（unwind的用处）。</li>
+</ul>
+</div><div class="article-licensing box"><div class="licensing-title"><p>C++调试（1）—— 认识Dwarf格式</p><p><a href="https://devillove084.github.io/2024/06/15/Debug-1/">https://devillove084.github.io/2024/06/15/Debug-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2024-06-15</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2024-06-15</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/debug/">debug</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2024/05/12/Transaction-2/"><span class="level-item">数据库事务模型分析（2）—— 等价关系</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2024 devillove084</span>  Powered by <a href="https://devillove084.xyz/" target="_blank" rel="noopener">Database</a> &amp; <a href="https://en.wikipedia.org/wiki/Open_source" target="_blank" rel="noopener">Open source</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
