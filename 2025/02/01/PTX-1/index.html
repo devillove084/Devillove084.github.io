@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>NVIDIA PTX 简单入门 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="先看代码： 123456789101112131415161718192021222324target datalayout &amp;#x3D; &amp;quot;e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64"><meta property="og:type" content="blog"><meta property="og:title" content="NVIDIA PTX 简单入门"><meta property="og:url" content="https://devillove084.github.io/2025/02/01/PTX-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="先看代码： 123456789101112131415161718192021222324target datalayout &amp;#x3D; &amp;quot;e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-02-01T07:56:32.000Z"><meta property="article:modified_time" content="2025-02-01T08:59:09.346Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="CUDA, PTX"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/02/01/PTX-1/"},"headline":"NVIDIA PTX 简单入门","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-02-01T07:56:32.000Z","dateModified":"2025-02-01T08:59:09.346Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"先看代码： 123456789101112131415161718192021222324target datalayout &#x3D; &quot;e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64"}</script><link rel="canonical" href="https://devillove084.github.io/2025/02/01/PTX-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;600&amp;family=Roboto+Mono"><link data-pjax rel="stylesheet" href="/css/default.css"><script src="/freecdn-loader.min.js"></script><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.1.1"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-02-01T07:56:32.000Z" title="2/1/2025, 7:56:32 AM">2025-02-01</time>发表</span><span class="level-item"><time dateTime="2025-02-01T08:59:09.346Z" title="2/1/2025, 8:59:09 AM">2025-02-01</time>更新</span><span class="level-item">16 分钟读完 (大约2454个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">NVIDIA PTX 简单入门</h1><div class="content"><p>先看代码：</p>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">target</span> <span class="keyword">datalayout</span> <span class="operator">=</span> <span class="string">&quot;e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64&quot;</span></span><br><span class="line"><span class="keyword">target</span> <span class="keyword">triple</span> <span class="operator">=</span> <span class="string">&quot;nvptx64-nvidia-cuda&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">declare</span> <span class="type">i32</span> <span class="title">@llvm.nvvm.read.ptx.sreg.tid.x</span>() <span class="keyword">nounwind</span> <span class="keyword">readnone</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">define</span> void <span class="title">@kernel</span>(ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%A</span><span class="punctuation">,</span></span><br><span class="line">                    ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%B</span><span class="punctuation">,</span></span><br><span class="line">                    ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%C</span>) &#123;</span><br><span class="line"><span class="symbol">entry:</span></span><br><span class="line">  <span class="variable">%id</span> <span class="operator">=</span> <span class="keyword">call</span> <span class="type">i32</span> <span class="title">@llvm.nvvm.read.ptx.sreg.tid.x</span>()</span><br><span class="line">  <span class="variable">%ptrA</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%A</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br><span class="line">  <span class="variable">%ptrB</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%B</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br><span class="line">  <span class="variable">%ptrC</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%C</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br><span class="line"></span><br><span class="line">  <span class="variable">%valA</span> <span class="operator">=</span> <span class="keyword">load</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrA</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br><span class="line">  <span class="variable">%valB</span> <span class="operator">=</span> <span class="keyword">load</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrB</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br><span class="line">  <span class="variable">%valC</span> <span class="operator">=</span> <span class="keyword">fadd</span> float <span class="variable">%valA</span><span class="punctuation">,</span> <span class="variable">%valB</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">store</span> float <span class="variable">%valC</span><span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrC</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br><span class="line">  <span class="keyword">ret</span> void</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="title">!nvvm.annotations</span> <span class="operator">=</span> !&#123;<span class="title">!0</span>&#125;</span><br><span class="line"><span class="title">!0</span> <span class="operator">=</span> !&#123;ptr <span class="title">@kernel</span><span class="punctuation">,</span> !<span class="string">&quot;kernel&quot;</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="number">1</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<blockquote>
+<p>这个kernel.ll文件是LLVM IR（Intermediate Representation）表示的CUDA核函数，专为NVIDIA PTX（Parallel Thread Execution）架构生成。以下是逐行解释：</p>
+</blockquote>
+<h2 id="逐行解释"><a href="#逐行解释" class="headerlink" title="逐行解释"></a>逐行解释</h2><ol>
+<li>目标架构定义</li>
+</ol>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">target</span> <span class="keyword">datalayout</span> <span class="operator">=</span> <span class="string">&quot;e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：定义数据的内存布局规则。</p>
+<p>关键参数：</p>
+<ul>
+<li>e: 小端字节序</li>
+<li>p:64:64:64: 指针占64位，对齐为64位</li>
+<li>i1:8:8: 1位整数对齐为8位</li>
+<li>f32:32:32: 单精度浮点数对齐为32位</li>
+<li>v16:16:16: 16位向量对齐为16位</li>
+<li>n16:32:64: 本地指针大小（用于GPU架构）</li>
+</ul>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">target</span> <span class="keyword">triple</span> <span class="operator">=</span> <span class="string">&quot;nvptx64-nvidia-cuda&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：指定目标架构为NVIDIA PTX 64位架构，用于CUDA设备。</p>
+<ol start="2">
+<li>内置函数声明</li>
+</ol>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">declare</span> <span class="type">i32</span> <span class="title">@llvm.nvvm.read.ptx.sreg.tid.x</span>() <span class="keyword">nounwind</span> <span class="keyword">readnone</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：声明PTX内置函数，用于读取线程在X维度的ID（类似CUDA的threadIdx.x）。</p>
+<p>特性：</p>
+<ul>
+<li>nounwind: 保证不会抛出异常;</li>
+<li>readnone: 函数无副作用，输出仅依赖输入;</li>
+</ul>
+<ol start="3">
+<li>核函数定义</li>
+</ol>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">define</span> void <span class="title">@kernel</span>(ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%A</span><span class="punctuation">,</span></span><br><span class="line">                    ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%B</span><span class="punctuation">,</span></span><br><span class="line">                    ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%C</span>) </span><br></pre></td></tr></table></figure>
+
+<p>作用：定义名为kernel的核函数，接受三个全局内存指针参数。</p>
+<p>关键点：</p>
+<ul>
+<li>addrspace(1): 表示指针指向全局内存（GPU显存）</li>
+<li>对比CUDA中的参数类型：<code>float* A → ptr addrspace(1) %A</code></li>
+</ul>
+<ol start="4">
+<li>入口基本块（Entry Block）</li>
+</ol>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">entry:</span></span><br><span class="line">  <span class="variable">%id</span> <span class="operator">=</span> <span class="keyword">call</span> <span class="type">i32</span> <span class="title">@llvm.nvvm.read.ptx.sreg.tid.x</span>()</span><br></pre></td></tr></table></figure>
+
+<p>作用：获取当前线程在X维度的ID，存入%id寄存器。</p>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">%ptrA</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%A</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br><span class="line"><span class="variable">%ptrB</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%B</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br><span class="line"><span class="variable">%ptrC</span> <span class="operator">=</span> <span class="keyword">getelementptr</span> <span class="keyword">inbounds</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%C</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="variable">%id</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：计算每个线程访问的全局内存地址。</p>
+<p>语法：</p>
+<ul>
+<li><code>getelementptr inbounds</code>: 计算数组元素地址（类似&amp;A[threadIdx.x]）</li>
+<li><code>float</code>: 元素类型</li>
+<li><code>ptr addrspace(1) %A</code>: 基地址</li>
+<li><code>i32 %id</code>: 偏移量</li>
+</ul>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">%valA</span> <span class="operator">=</span> <span class="keyword">load</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrA</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br><span class="line"><span class="variable">%valB</span> <span class="operator">=</span> <span class="keyword">load</span> float<span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrB</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：从全局内存加载数据到寄存器。</p>
+<p>参数：</p>
+<ul>
+<li>align 4: 确保4字节对齐访问（优化内存访问）</li>
+</ul>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">%valC</span> <span class="operator">=</span> <span class="keyword">fadd</span> float <span class="variable">%valA</span><span class="punctuation">,</span> <span class="variable">%valB</span></span><br></pre></td></tr></table></figure>
+
+<p>作用：执行浮点数加法运算。</p>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">store</span> float <span class="variable">%valC</span><span class="punctuation">,</span> ptr <span class="keyword">addrspace</span>(<span class="number">1</span>) <span class="variable">%ptrC</span><span class="punctuation">,</span> <span class="keyword">align</span> <span class="number">4</span></span><br><span class="line"><span class="keyword">ret</span> void</span><br></pre></td></tr></table></figure>
+
+<p>作用：将结果写回全局内存，然后返回。</p>
+<p>关键点：</p>
+<ul>
+<li>store指令的内存地址必须指定正确的地址空间（addrspace(1)）</li>
+</ul>
+<ol start="5">
+<li>元数据注解</li>
+</ol>
+<figure class="highlight llvm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="title">!nvvm.annotations</span> <span class="operator">=</span> !&#123;<span class="title">!0</span>&#125;</span><br><span class="line"><span class="title">!0</span> <span class="operator">=</span> !&#123;ptr <span class="title">@kernel</span><span class="punctuation">,</span> !<span class="string">&quot;kernel&quot;</span><span class="punctuation">,</span> <span class="type">i32</span> <span class="number">1</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>作用：标记@kernel函数为CUDA核函数。</p>
+<p>参数：</p>
+<ul>
+<li>ptr @kernel: 函数指针;</li>
+<li>!”kernel”: 标记类型为核函数;</li>
+<li>i32 1: 参数（通常表示核函数版本或特性）;</li>
+</ul>
+<p>这个核函数的行为等价于以下CUDA代码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">kernel</span><span class="params">(<span class="type">float</span>*A, <span class="type">float</span>* B, <span class="type">float</span>* C)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> id = threadIdx.x;</span><br><span class="line">    C[id] = A[id] + B[id];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>每个线程负责将全局内存中A和B对应位置的值相加，结果写入C的相同位置。</p>
+<h2 id="关键概念补充"><a href="#关键概念补充" class="headerlink" title="关键概念补充"></a>关键概念补充</h2><ol>
+<li>地址空间：</li>
+</ol>
+<ul>
+<li><p>addrspace(1): 全局内存（显存）</p>
+</li>
+<li><p>addrspace(3): 共享内存</p>
+</li>
+<li><p>addrspace(5): 常量内存</p>
+</li>
+</ul>
+<ol start="2">
+<li>PTX寄存器访问：</li>
+</ol>
+<ul>
+<li><p>tid.x对应threadIdx.x</p>
+</li>
+<li><p>类似还有ctaid.x（blockIdx.x）、ntid.x（blockDim.x）等</p>
+</li>
+</ul>
+<ol start="3">
+<li>LLVM IR特性：</li>
+</ol>
+<ul>
+<li><p>静态单赋值（SSA）形式</p>
+</li>
+<li><p>强类型系统</p>
+</li>
+<li><p>显式内存地址空间管理</p>
+</li>
+</ul>
+<h2 id="再看用法"><a href="#再看用法" class="headerlink" title="再看用法"></a>再看用法</h2><p>将上文的LLVM IR代码编译为NVIDIA PTX 后端代码，命令为：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">llc-15 -march=nvptx64 -mcpu=sm_80 kernel.ll -o kernel.ptx</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>llc-15<br>作用：LLVM 静态编译器工具,用于将 LLVM IR 代码编译为目标平台的汇编代码或二进制格式。此处用于生成 NVIDIA PTX 代码。</p>
+</li>
+<li><p>-march&#x3D;nvptx64<br>作用：指定目标架构为 NVIDIA PTX 64 位，nvptx64 是 NVIDIA 的 Parallel Thread Execution (PTX) 虚拟指令集架构，专为 64 位 GPU 设计。PTX 代码可在支持该架构的 NVIDIA GPU 上运行（需进一步编译为实际 GPU 指令）。</p>
+</li>
+<li><p>-mcpu&#x3D;sm_80<br>作用：指定目标 GPU 的计算能力版本。</p>
+</li>
+</ol>
+<blockquote>
+<ul>
+<li>sm_80 对应 NVIDIA Ampere 架构（如 A100、RTX 3090 等）。</li>
+<li>sm 表示 “Streaming Multiprocessor”，数字 80 代表计算能力 8.0。<br>此选项确保生成的 PTX 代码针对该架构优化。</li>
+</ul>
+</blockquote>
+<ol start="4">
+<li><p>kernel.ll<br>作用: 此文件通常由 Clang 或其他 LLVM 前端生成，包含高级语言（如 C&#x2F;C++、CUDA 等）编译后的中间代码。</p>
+</li>
+<li><p>-o kernel.ptx<br>作用：输出的 PTX 文件是 NVIDIA GPU 可读的中间代码，后续可通过 NVIDIA 驱动或工具（如 nvcc）进一步编译为实际 GPU 指令（SASS，见下文）。</p>
+</li>
+</ol>
+<h2 id="PTX-生成代码"><a href="#PTX-生成代码" class="headerlink" title="PTX 生成代码"></a>PTX 生成代码</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Generated by LLVM NVPTX Back-End</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"></span><br><span class="line">.version <span class="number">7.0</span></span><br><span class="line">.target sm_80</span><br><span class="line">.address_size <span class="number">64</span></span><br><span class="line"></span><br><span class="line"> <span class="comment">// .globl kernel                  // -- Begin function kernel</span></span><br><span class="line">                                        <span class="comment">// @kernel</span></span><br><span class="line">.visible .entry <span class="title function_">kernel</span><span class="params">(</span></span><br><span class="line"><span class="params"> .param .u64 kernel_param_0,</span></span><br><span class="line"><span class="params"> .param .u64 kernel_param_1,</span></span><br><span class="line"><span class="params"> .param .u64 kernel_param_2</span></span><br><span class="line"><span class="params">)</span></span><br><span class="line">&#123;</span><br><span class="line"> .reg .b32  %r&lt;<span class="number">2</span>&gt;;</span><br><span class="line"> .reg .f32  %f&lt;<span class="number">4</span>&gt;;</span><br><span class="line"> .reg .b64  %rd&lt;<span class="number">8</span>&gt;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// %bb.0:                               // %entry</span></span><br><span class="line"> ld.param.u64  %rd1, [kernel_param_0];</span><br><span class="line"> ld.param.u64  %rd2, [kernel_param_1];</span><br><span class="line"> mov.u32  %r1, %tid.x;</span><br><span class="line"> ld.param.u64  %rd3, [kernel_param_2];</span><br><span class="line"> mul.wide.s32  %rd4, %r1, <span class="number">4</span>;</span><br><span class="line"> add.s64  %rd5, %rd1, %rd4;</span><br><span class="line"> add.s64  %rd6, %rd2, %rd4;</span><br><span class="line"> add.s64  %rd7, %rd3, %rd4;</span><br><span class="line"> ld.global.f32  %f1, [%rd5];</span><br><span class="line"> ld.global.f32  %f2, [%rd6];</span><br><span class="line"> add.rn.f32  %f3, %f1, %f2;</span><br><span class="line"> st.global.f32  [%rd7], %f3;</span><br><span class="line"> ret;</span><br><span class="line">                                        <span class="comment">// -- End function</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="SASS"><a href="#SASS" class="headerlink" title="SASS"></a>SASS</h2><p>SASS（Streaming ASSembly）是 NVIDIA GPU 的实际底层机器码（二进制指令集），直接由 GPU 硬件执行。它是 PTX 代码经过进一步编译后的最终产物，与 PTX 的关系类似于 CPU 汇编代码和中间语言（如 Java 字节码）的关系。</p>
+<h3 id="SASS-的关键特性"><a href="#SASS-的关键特性" class="headerlink" title="SASS 的关键特性"></a>SASS 的关键特性</h3><ul>
+<li><p>二进制格式：</p>
+<ul>
+<li>SASS 是 GPU 硬件直接执行的二进制指令，不可读</li>
+<li>PTX 是文本格式的中间代码，人类可读（但一般由编译器生成）</li>
+</ul>
+</li>
+<li><p>硬件绑定：</p>
+<ul>
+<li>SASS 直接对应具体 GPU 架构（如 Ampere、Ada Lovelace、Hopper）。</li>
+<li>不同架构的 SASS 不兼容（例如 sm_80 的 SASS 无法在 sm_70 的 GPU 上运行）。</li>
+</ul>
+</li>
+<li><p>性能优化</p>
+<ul>
+<li>SASS 经过 NVIDIA 驱动或工具（如 nvcc）的优化，包含特定 GPU 的指令调度、寄存器分配等。</li>
+<li>PTX 是通用中间表示，需进一步编译为 SASS 才能高效执行。</li>
+</ul>
+</li>
+<li><p>隐蔽性：</p>
+<ul>
+<li>NVIDIA 未公开 SASS 的完整指令集和编码规范，普通开发者通常无需直接操作 SASS。</li>
+</ul>
+</li>
+</ul>
+<h3 id="PTX-与-SASS-的编译流程"><a href="#PTX-与-SASS-的编译流程" class="headerlink" title="PTX 与 SASS 的编译流程"></a>PTX 与 SASS 的编译流程</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">高级语言（如 CUDA C++）</span><br><span class="line">  ↓ 编译（nvcc/clang）</span><br><span class="line">LLVM IR（.ll 文件）</span><br><span class="line">  ↓ 编译（llc）</span><br><span class="line">PTX 代码（.ptx 文件）</span><br><span class="line">  ↓ 运行时编译（NVIDIA 驱动）或离线编译（nvcc）</span><br><span class="line">SASS 机器码（二进制，GPU 直接执行）</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>PTX 是跨 GPU 架构的中间层代码（类似虚拟指令集）;</li>
+<li>SASS 是最终在 GPU 上运行的机器码（绑定具体架构）;</li>
+</ul>
+<h3 id="如何查看-SASS-代码？"><a href="#如何查看-SASS-代码？" class="headerlink" title="如何查看 SASS 代码？"></a>如何查看 SASS 代码？</h3><ol>
+<li>使用 cuobjdump：</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cuobjdump -sass compiled_gpu_binary.cubin</span><br></pre></td></tr></table></figure>
+
+<p>输出 SASS 指令的文本表示（例如指令操作码、寄存器分配）。</p>
+<ol start="2">
+<li>使用 nvcc 生成：</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nvcc --keep --gpu-architecture=sm_80 -c code.cu</span><br></pre></td></tr></table></figure>
+
+<p>保留中间文件（如 .sass 或 .cubin）。</p>
+<ol start="3">
+<li>Nsight Compute：</li>
+</ol>
+<p>NVIDIA 官方工具，可分析 SASS 指令的执行效率和资源使用。</p>
+<p>假设一段简单的加法操作，PTX 代码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">.version <span class="number">7.8</span></span><br><span class="line">.target sm_80</span><br><span class="line">.global .func(.param.b64 %out), add(</span><br><span class="line">  .param.b64 %a,</span><br><span class="line">  .param.b64 %b</span><br><span class="line">) &#123;</span><br><span class="line">  ld.param.u64 %r1, [%a];</span><br><span class="line">  ld.param.u64 %r2, [%b];</span><br><span class="line">  add.u64 %r3, %r1, %r2;</span><br><span class="line">  st.param.b64 [%out], %r3;</span><br><span class="line">  ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对应的SASS 代码为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">IADD R1, R2, R3;</span><br><span class="line">MOV R4, R1;</span><br></pre></td></tr></table></figure>
+
+<h2 id="PTX-怎么用"><a href="#PTX-怎么用" class="headerlink" title="PTX 怎么用"></a>PTX 怎么用</h2><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cassert&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cuda.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">checkCudaErrors</span><span class="params">(CUresult err)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">assert</span>(err == CUDA_SUCCESS);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/// main - Program entry point</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span> </span>&#123;</span><br><span class="line">  CUdevice    device;</span><br><span class="line">  CUmodule    cudaModule;</span><br><span class="line">  CUcontext   context;</span><br><span class="line">  CUfunction  function;</span><br><span class="line">  CUlinkState linker;</span><br><span class="line">  <span class="type">int</span>         devCount;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// CUDA initialization</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuInit</span>(<span class="number">0</span>));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuDeviceGetCount</span>(&amp;devCount));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuDeviceGet</span>(&amp;device, <span class="number">0</span>));</span><br><span class="line"></span><br><span class="line">  <span class="type">char</span> name[<span class="number">128</span>];</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuDeviceGetName</span>(name, <span class="number">128</span>, device));</span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;Using CUDA Device [0]: &quot;</span> &lt;&lt; name &lt;&lt; <span class="string">&quot;\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> devMajor, devMinor;</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuDeviceComputeCapability</span>(&amp;devMajor, &amp;devMinor, device));</span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;Device Compute Capability: &quot;</span></span><br><span class="line">            &lt;&lt; devMajor &lt;&lt; <span class="string">&quot;.&quot;</span> &lt;&lt; devMinor &lt;&lt; <span class="string">&quot;\n&quot;</span>;</span><br><span class="line">  <span class="keyword">if</span> (devMajor &lt; <span class="number">2</span>) &#123;</span><br><span class="line">    std::cerr &lt;&lt; <span class="string">&quot;ERROR: Device 0 is not SM 2.0 or greater\n&quot;</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">std::ifstream <span class="title">t</span><span class="params">(<span class="string">&quot;kernel.ptx&quot;</span>)</span></span>;</span><br><span class="line">  <span class="keyword">if</span> (!t.<span class="built_in">is_open</span>()) &#123;</span><br><span class="line">    std::cerr &lt;&lt; <span class="string">&quot;kernel.ptx not found\n&quot;</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="function">std::string <span class="title">str</span><span class="params">((std::istreambuf_iterator&lt;<span class="type">char</span>&gt;(t)),</span></span></span><br><span class="line"><span class="params"><span class="function">                    std::istreambuf_iterator&lt;<span class="type">char</span>&gt;())</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create driver context</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuCtxCreate</span>(&amp;context, <span class="number">0</span>, device));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create module for object</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuModuleLoadDataEx</span>(&amp;cudaModule, str.<span class="built_in">c_str</span>(), <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Get kernel function</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuModuleGetFunction</span>(&amp;function, cudaModule, <span class="string">&quot;kernel&quot;</span>));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Device data</span></span><br><span class="line">  CUdeviceptr devBufferA;</span><br><span class="line">  CUdeviceptr devBufferB;</span><br><span class="line">  CUdeviceptr devBufferC;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemAlloc</span>(&amp;devBufferA, <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemAlloc</span>(&amp;devBufferB, <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemAlloc</span>(&amp;devBufferC, <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line"></span><br><span class="line">  <span class="type">float</span>* hostA = <span class="keyword">new</span> <span class="type">float</span>[<span class="number">16</span>];</span><br><span class="line">  <span class="type">float</span>* hostB = <span class="keyword">new</span> <span class="type">float</span>[<span class="number">16</span>];</span><br><span class="line">  <span class="type">float</span>* hostC = <span class="keyword">new</span> <span class="type">float</span>[<span class="number">16</span>];</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Populate input</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">unsigned</span> i = <span class="number">0</span>; i != <span class="number">16</span>; ++i) &#123;</span><br><span class="line">    hostA[i] = (<span class="type">float</span>)i;</span><br><span class="line">    hostB[i] = (<span class="type">float</span>)(<span class="number">2</span>*i);</span><br><span class="line">    hostC[i] = <span class="number">0.0f</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemcpyHtoD</span>(devBufferA, &amp;hostA[<span class="number">0</span>], <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemcpyHtoD</span>(devBufferB, &amp;hostB[<span class="number">0</span>], <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  <span class="type">unsigned</span> blockSizeX = <span class="number">16</span>;</span><br><span class="line">  <span class="type">unsigned</span> blockSizeY = <span class="number">1</span>;</span><br><span class="line">  <span class="type">unsigned</span> blockSizeZ = <span class="number">1</span>;</span><br><span class="line">  <span class="type">unsigned</span> gridSizeX  = <span class="number">1</span>;</span><br><span class="line">  <span class="type">unsigned</span> gridSizeY  = <span class="number">1</span>;</span><br><span class="line">  <span class="type">unsigned</span> gridSizeZ  = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Kernel parameters</span></span><br><span class="line">  <span class="type">void</span> *KernelParams[] = &#123; &amp;devBufferA, &amp;devBufferB, &amp;devBufferC &#125;;</span><br><span class="line"></span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;Launching kernel\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Kernel launch</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuLaunchKernel</span>(function, gridSizeX, gridSizeY, gridSizeZ,</span><br><span class="line">                                 blockSizeX, blockSizeY, blockSizeZ,</span><br><span class="line">                                 <span class="number">0</span>, <span class="literal">NULL</span>, KernelParams, <span class="literal">NULL</span>));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Retrieve device data</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemcpyDtoH</span>(&amp;hostC[<span class="number">0</span>], devBufferC, <span class="built_in">sizeof</span>(<span class="type">float</span>)*<span class="number">16</span>));</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;Results:\n&quot;</span>;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">unsigned</span> i = <span class="number">0</span>; i != <span class="number">16</span>; ++i) &#123;</span><br><span class="line">    std::cout &lt;&lt; hostA[i] &lt;&lt; <span class="string">&quot; + &quot;</span> &lt;&lt; hostB[i] &lt;&lt; <span class="string">&quot; = &quot;</span> &lt;&lt; hostC[i] &lt;&lt; <span class="string">&quot;\n&quot;</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clean up after ourselves</span></span><br><span class="line">  <span class="keyword">delete</span> [] hostA;</span><br><span class="line">  <span class="keyword">delete</span> [] hostB;</span><br><span class="line">  <span class="keyword">delete</span> [] hostC;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clean-up</span></span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemFree</span>(devBufferA));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemFree</span>(devBufferB));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuMemFree</span>(devBufferC));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuModuleUnload</span>(cudaModule));</span><br><span class="line">  <span class="built_in">checkCudaErrors</span>(<span class="built_in">cuCtxDestroy</span>(context));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里是代码的简单行为：</p>
+<ul>
+<li><p>初始化 CUDA 环境：</p>
+<ul>
+<li>检测 GPU 设备，验证计算能力；</li>
+<li>加载 kernel.ptx 文件。</li>
+</ul>
+</li>
+<li><p>准备数据：</p>
+<ul>
+<li>在 GPU 上分配内存（devBufferA, devBufferB, devBufferC）；</li>
+<li>在 CPU 上初始化输入数据 hostA 和 hostB（值分别为 0, 1, 2, …, 15 和 0, 2, 4, …, 30）。</li>
+<li>将数据从 CPU 拷贝到 GPU。</li>
+</ul>
+</li>
+<li><p>启动 GPU 核函数：</p>
+<ul>
+<li>调用 kernel 函数，执行 A + B &#x3D; C 的加法操作；</li>
+<li>核函数使用 1 个线程块，包含 16 个线程（每个线程处理一个元素）。</li>
+</ul>
+</li>
+<li><p>验证结果：</p>
+<ul>
+<li>将 GPU 计算结果 devBufferC 拷贝回 CPU 的 hostC；</li>
+<li>打印 hostA[i] + hostB[i] &#x3D; hostC[i]，验证结果是否正确。</li>
+</ul>
+</li>
+<li><p>清理资源</p>
+</li>
+</ul>
+<p>相关输出为：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">Using CUDA Device [0]: NVIDIA H100 80GB HBM3</span><br><span class="line">Device Compute Capability: 9.0</span><br><span class="line">Launching kernel</span><br><span class="line">Results:</span><br><span class="line">0 + 0 = 0</span><br><span class="line">1 + 2 = 3</span><br><span class="line">2 + 4 = 6</span><br><span class="line">3 + 6 = 9</span><br><span class="line">4 + 8 = 12</span><br><span class="line">5 + 10 = 15</span><br><span class="line">6 + 12 = 18</span><br><span class="line">7 + 14 = 21</span><br><span class="line">8 + 16 = 24</span><br><span class="line">9 + 18 = 27</span><br><span class="line">10 + 20 = 30</span><br><span class="line">11 + 22 = 33</span><br><span class="line">12 + 24 = 36</span><br><span class="line">13 + 26 = 39</span><br><span class="line">14 + 28 = 42</span><br><span class="line">15 + 30 = 45</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2></div><div class="article-licensing box"><div class="licensing-title"><p>NVIDIA PTX 简单入门</p><p><a href="https://devillove084.github.io/2025/02/01/PTX-1/">https://devillove084.github.io/2025/02/01/PTX-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-02-01</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-02-01</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/CUDA-PTX/">CUDA, PTX</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2024/06/15/Debug-1/"><span class="level-item">C++调试（1）—— 认识Dwarf格式</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2025 devillove084</span>  Powered by <a href="https://en.wikipedia.org/wiki/Database" target="_blank" rel="noopener">Database</a> &amp; <a href="https://en.wikipedia.org/wiki/High-performance_computing" target="_blank" rel="noopener">HPC</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script data-pjax src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script data-pjax src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
