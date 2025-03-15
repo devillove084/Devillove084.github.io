@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>DuckDB-源码分析（2）Parquet读设计 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"><meta property="og:type" content="blog"><meta property="og:title" content="DuckDB-源码分析（2）Parquet读设计"><meta property="og:url" content="https://devillove084.github.io/2025/02/16/DuckDB-2/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-02-16T17:14:34.000Z"><meta property="article:modified_time" content="2025-03-07T13:10:30.161Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="DuckDB"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/02/16/DuckDB-2/"},"headline":"DuckDB-源码分析（2）Parquet读设计","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-02-16T17:14:34.000Z","dateModified":"2025-03-07T13:10:30.161Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"}</script><link rel="canonical" href="https://devillove084.github.io/2025/02/16/DuckDB-2/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>DuckDB-源码分析（2）Parquet读设计 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"><meta property="og:type" content="blog"><meta property="og:title" content="DuckDB-源码分析（2）Parquet读设计"><meta property="og:url" content="https://devillove084.github.io/2025/02/16/DuckDB-2/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-02-16T17:14:34.000Z"><meta property="article:modified_time" content="2025-03-15T18:06:45.368Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="DuckDB"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/02/16/DuckDB-2/"},"headline":"DuckDB-源码分析（2）Parquet读设计","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-02-16T17:14:34.000Z","dateModified":"2025-03-15T18:06:45.368Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。 DeriveLogicalTy"}</script><link rel="canonical" href="https://devillove084.github.io/2025/02/16/DuckDB-2/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
   (function () {
       function switchTab() {
           if (!location.hash) {
@@ -29,7 +29,7 @@
       switchTab();
       window.addEventListener('hashchange', switchTab, false);
   })();
-  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-02-16T17:14:34.000Z" title="2/16/2025, 5:14:34 PM">2025-02-16</time>发表</span><span class="level-item"><time dateTime="2025-03-07T13:10:30.161Z" title="3/7/2025, 1:10:30 PM">2025-03-07</time>更新</span><span class="level-item">26 分钟读完 (大约3869个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">DuckDB-源码分析（2）Parquet读设计</h1><div class="content"><p>在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。</p>
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-02-16T17:14:34.000Z" title="2/16/2025, 5:14:34 PM">2025-02-16</time>发表</span><span class="level-item"><time dateTime="2025-03-15T18:06:45.368Z" title="3/15/2025, 6:06:45 PM">2025-03-15</time>更新</span><span class="level-item">25 分钟读完 (大约3751个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">DuckDB-源码分析（2）Parquet读设计</h1><div class="content"><p>在ParquetReader的构造函数中，会打开文件句柄，加载元数据，并初始化。Scan函数负责实际的扫描过程，处理行组，应用过滤器，读取数据到DataChunk中。首先，在元数据加载部分，parquet文件的元数据通常位于文件末尾，包含schema、行组信息、统计信息等。LoadMetadata函数通过读取文件末尾的元数据部分，解析出FileMetaData结构。</p>
 <p>DeriveLogicalType函数根据Parquet的SchemaElement中的类型信息（如Type、converted_type、logicalType）转换为DuckDB的LogicalType。例如，Parquet的INT32可能对应DuckDB的INTEGER，而带有converted_type为DATE的INT32会被转换为DATE类型。这里还处理了时间戳、UUID等复杂类型的转换。</p>
 <p>创建列读取器的过程在CreateReaderRecursive中完成，这个函数递归地遍历SchemaElement树，根据每个元素的类型和子元素创建相应的ColumnReader。例如，遇到STRUCT类型时，会创建StructColumnReader，并为每个子列创建对应的读取器，对于重复的字段（如LIST或MAP），会使用ListColumnReader来处理嵌套结构。</p>
 <p>初始化时，InitializeSchema调用CreateReader创建根读取器，通常是StructColumnReader，因为它对应Parquet文件的根结构。然后根据读取到的列信息填充columns向量，记录每个列的名称和类型。</p>
@@ -63,7 +63,7 @@
     C --> E[GeoParquetMetadata]
     A --> F[ColumnReader树]
     
-    subgraph 元数据
+    subgraph Metadata
         D --> G[SchemaElements]
         D --> H[RowGroups]
         H --> I[ColumnChunks]
@@ -71,17 +71,14 @@
         I --> K[EncryptionInfo]
     end
     
-    subgraph 读取器结构
+    subgraph Reader
         F --> L[StructColumnReader]
         L --> M[ColumnReader...]
         M --> N[ListColumnReader]
         M --> O[TemplatedColumnReader]
     end
     
-    B -->|读取| P[Parquet文件]
-    style A fill:#f9f,stroke:#333
-    style C fill:#bbf,stroke:#333
-    style F fill:#9f9,stroke:#333</pre>
+    B -->|read| P[Parquet file]</pre>
 
 <h4 id="关键数据结构说明"><a href="#关键数据结构说明" class="headerlink" title="关键数据结构说明"></a>关键数据结构说明</h4><ol>
 <li>FileMetaData 元数据类结构</li>
@@ -116,23 +113,23 @@
     participant ThriftParser
     participant ColumnReader
     
-    Client->>ParquetReader: 创建Reader(file_name)
+    Client->>ParquetReader: Create Reader(file_name)
     ParquetReader->>FileSystem: OpenFile()
-    FileSystem-->>ParquetReader: 返回FileHandle
+    FileSystem-->>ParquetReader: Return FileHandle
     
-    alt 无缓存
+    alt non-cache
         ParquetReader->>ThriftParser: LoadMetadata()
-        ThriftParser->>FileHandle: 读取文件尾部
+        ThriftParser->>FileHandle: Read file footer
         ThriftParser-->>ParquetReader: FileMetaData
-    else 有缓存
+    else cache
         ParquetReader->>ObjectCache: GetMetadata()
     end
     
     ParquetReader->>ColumnReader: CreateReaderRecursive()
-    loop 递归创建
-        ColumnReader->>ColumnReader: 创建子读取器
+    loop create
+        ColumnReader->>ColumnReader: Create sub reader
     end
-    ParquetReader-->>Client: 初始化完成</pre>
+    ParquetReader-->>Client: Init done</pre>
 
 <h3 id="扫描数据过程"><a href="#扫描数据过程" class="headerlink" title="扫描数据过程"></a>扫描数据过程</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ParquetReader::InitializeScan</span><span class="params">(ClientContext &amp;context, </span></span></span><br><span class="line"><span class="params"><span class="function">                                  ParquetReaderScanState &amp;state,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  vector&lt;<span class="type">idx_t</span>&gt; groups_to_read)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 重置扫描状态</span></span><br><span class="line">    state.current_group = <span class="number">-1</span>;</span><br><span class="line">    state.group_offset = <span class="number">0</span>;</span><br><span class="line">    state.finished = <span class="literal">false</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 独立文件句柄（支持多线程）</span></span><br><span class="line">    state.file_handle = fs.<span class="built_in">OpenFile</span>(file_name, </span><br><span class="line">        FileFlags::FILE_FLAGS_READ | (prefetch ? FILE_FLAGS_DIRECT_IO : <span class="number">0</span>));</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 创建Thrift协议解析器（每个扫描状态独立）</span></span><br><span class="line">    state.thrift_file_proto = <span class="built_in">CreateThriftFileProtocol</span>(allocator, *state.file_handle, state.prefetch_mode);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 创建列读取器树（可能带谓词过滤）</span></span><br><span class="line">    state.root_reader = <span class="built_in">CreateReader</span>(context);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 初始化缓冲区</span></span><br><span class="line">    state.define_buf.<span class="built_in">resize</span>(allocator, STANDARD_VECTOR_SIZE);</span><br><span class="line">    state.repeat_buf.<span class="built_in">resize</span>(allocator, STANDARD_VECTOR_SIZE);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 配置预取模式</span></span><br><span class="line">    Value prefetch_all;</span><br><span class="line">    context.<span class="built_in">TryGetCurrentSetting</span>(<span class="string">&quot;prefetch_all_parquet_files&quot;</span>, prefetch_all);</span><br><span class="line">    state.prefetch_mode = prefetch_all.<span class="built_in">GetValue</span>&lt;<span class="type">bool</span>&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
@@ -232,41 +229,35 @@
 </tbody></table>
 <p>读取流程图</p>
 <pre class="mermaid">graph TD
-    A[打开文件] --> B{加密检查}
-    B -- 是 --> C[解密元数据]
-    B -- 否 --> D[直接读取元数据]
-    C --> E[解析元数据]
+    A[Open file] --> B{Crypt check}
+    B -- Y --> C[Decrypt metadata]
+    B -- N --> D[Read metadata]
+    C --> E[Decode metadata]
     D --> E
-    E --> F[构建Schema树]
-    F --> G[递归创建列读取器]
-    G --> H[Struct/List列处理]
-    G --> I[基本类型列处理]
+    E --> F[Create schema tree]
+    F --> G[Create column reader]
+    G --> H[Struct/List column process]
+    G --> I[Basic type column process]
     
-    subgraph 扫描循环
-        J[选择行组] --> K{行组过滤?}
-        K -- 跳过 --> M[下一行组]
-        K -- 读取 --> L[初始化行组读取]
-        L --> N[预取数据]
-        N --> O[列并行读取]
-        O --> P[应用谓词下推]
-        P --> Q[向量化过滤]
-        Q --> R[输出DataChunk]
-        R --> S{更多行组?}
-        S -- 是 --> J
-        S -- 否 --> T[结束扫描]
+    subgraph scan loop
+        J[Choose row group] --> K{Row group filter?}
+        K -- Jump --> M[Next row group]
+        K -- Read --> L[Init row group reader]
+        L --> N[Prefetch]
+        N --> O[Column read]
+        O --> P[Apply filter]
+        P --> Q[Vector filter column]
+        Q --> R[Output DataChunk]
+        R --> S{More row group?}
+        S -- Y --> J
+        S -- N --> T[Scan done]
     end
     
     E --> J
-    I --> O
-    
-    style A fill:#f9f,stroke:#333
-    style E fill:#bbf,stroke:#333
-    style G fill:#9f9,stroke:#333
-    style J fill:#f96,stroke:#333
-    style O fill:#6f9,stroke:#333</pre>
+    I --> O</pre>
 
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>DuckDB 读取 Parquet 文件的设计通过文件系统接口打开文件，借助 Thrift 协议解析元数据，构建列读取器树并初始化 Schema。在扫描过程中，通过行组过滤、列并行读取和谓词下推等优化策略，高效地预取数据并将其转化为向量化数据块，同时利用元数据缓存、延迟加载和内存预分配等机制提升性能，实现对 Parquet 文件的快速读取和处理。设计充分考虑了现代硬件特性，通过向量化处理、数据局部性优化和多级并行，实现了高效的列式数据读取。同时，灵活的过滤机制使得在复杂查询场景下能显著减少不必要的IO和计算开销。</p>
-</div><div class="article-licensing box"><div class="licensing-title"><p>DuckDB-源码分析（2）Parquet读设计</p><p><a href="https://devillove084.github.io/2025/02/16/DuckDB-2/">https://devillove084.github.io/2025/02/16/DuckDB-2/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-02-16</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-03-07</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/DuckDB/">DuckDB</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/02/01/PTX-1/"><span class="level-item">NVIDIA PTX 简单入门</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+</div><div class="article-licensing box"><div class="licensing-title"><p>DuckDB-源码分析（2）Parquet读设计</p><p><a href="https://devillove084.github.io/2025/02/16/DuckDB-2/">https://devillove084.github.io/2025/02/16/DuckDB-2/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-02-16</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-03-15</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/DuckDB/">DuckDB</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/02/01/PTX-1/"><span class="level-item">NVIDIA PTX 简单入门</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
             el: '#valine-thread',
             appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
             appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
@@ -346,6 +337,6 @@
                 color: '#ffffff',
                 lowerThan: 'object-fit' // display on IE11 or below
             });
-        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
+        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><script src="https://cdn.jsdelivr.net/npm/mermaid@11.5.0/dist/mermaid.min.js"></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
             loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
         });</script></body></html>
