@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>RocksDB-源码分析（1）Read路径源码分析 - Database builder</title><meta name="robots" content="noindex"><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="RocksDB Prefetch机制设计分析设计哲学LSM-Tree的读写权衡 读路径的核心挑战：多级数据合并、读放大优化 读路径全景图分层结构：MemTable -&amp;gt; Immutable MemTable -&amp;gt; L0 SST -&amp;gt; L1+ SST 关键模块交互关系图 核心类分析FilePrefetchBufferDBImpl::Get() 入口分析 处理快照版本（Sequenc"><meta property="og:type" content="blog"><meta property="og:title" content="RocksDB-源码分析（1）Read路径源码分析"><meta property="og:url" content="https://devillove084.github.io/2025/03/07/RocksDB-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="RocksDB Prefetch机制设计分析设计哲学LSM-Tree的读写权衡 读路径的核心挑战：多级数据合并、读放大优化 读路径全景图分层结构：MemTable -&amp;gt; Immutable MemTable -&amp;gt; L0 SST -&amp;gt; L1+ SST 关键模块交互关系图 核心类分析FilePrefetchBufferDBImpl::Get() 入口分析 处理快照版本（Sequenc"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-03-07T13:29:46.000Z"><meta property="article:modified_time" content="2025-03-15T18:18:32.067Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="rocksdb"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/03/07/RocksDB-1/"},"headline":"RocksDB-源码分析（1）Read路径源码分析","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-03-07T13:29:46.000Z","dateModified":"2025-03-15T18:18:32.067Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"RocksDB Prefetch机制设计分析设计哲学LSM-Tree的读写权衡 读路径的核心挑战：多级数据合并、读放大优化 读路径全景图分层结构：MemTable -&gt; Immutable MemTable -&gt; L0 SST -&gt; L1+ SST 关键模块交互关系图 核心类分析FilePrefetchBufferDBImpl::Get() 入口分析 处理快照版本（Sequenc"}</script><link rel="canonical" href="https://devillove084.github.io/2025/03/07/RocksDB-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>RocksDB-源码分析（1）BlockTable 读源码分析 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="本文讨论了RocksDB的Prefetch和Async机制，在回顾LevelDB的SSTable读流程基础上，深入分析RocksDB的BlockBasedTableReader读流程、Prefetch相关函数及异步读取机制，还介绍了相关类设计和简单测试结果。包括：  LevelDB的SSTable读流程：分为Open和Get两个步骤，Open包括文件句柄管理、Footer读取等；Get使用二分查找"><meta property="og:type" content="blog"><meta property="og:title" content="RocksDB-源码分析（1）BlockTable 读源码分析"><meta property="og:url" content="https://devillove084.github.io/2025/03/07/RocksDB-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="本文讨论了RocksDB的Prefetch和Async机制，在回顾LevelDB的SSTable读流程基础上，深入分析RocksDB的BlockBasedTableReader读流程、Prefetch相关函数及异步读取机制，还介绍了相关类设计和简单测试结果。包括：  LevelDB的SSTable读流程：分为Open和Get两个步骤，Open包括文件句柄管理、Footer读取等；Get使用二分查找"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/images/block_based_table.png"><meta property="article:published_time" content="2025-03-07T13:29:46.000Z"><meta property="article:modified_time" content="2025-03-17T11:33:54.479Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="rocksdb"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/images/block_based_table.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/03/07/RocksDB-1/"},"headline":"RocksDB-源码分析（1）BlockTable 读源码分析","image":["https://devillove084.github.io/images/block_based_table.png"],"datePublished":"2025-03-07T13:29:46.000Z","dateModified":"2025-03-17T11:33:54.479Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"本文讨论了RocksDB的Prefetch和Async机制，在回顾LevelDB的SSTable读流程基础上，深入分析RocksDB的BlockBasedTableReader读流程、Prefetch相关函数及异步读取机制，还介绍了相关类设计和简单测试结果。包括：  LevelDB的SSTable读流程：分为Open和Get两个步骤，Open包括文件句柄管理、Footer读取等；Get使用二分查找"}</script><link rel="canonical" href="https://devillove084.github.io/2025/03/07/RocksDB-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
   (function () {
       function switchTab() {
           if (!location.hash) {
@@ -29,20 +29,1287 @@
       switchTab();
       window.addEventListener('hashchange', switchTab, false);
   })();
-  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-03-07T13:29:46.000Z" title="3/7/2025, 1:29:46 PM">2025-03-07</time>发表</span><span class="level-item"><time dateTime="2025-03-15T18:18:32.067Z" title="3/15/2025, 6:18:32 PM">2025-03-15</time>更新</span><span class="level-item">1 分钟读完 (大约150个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">RocksDB-源码分析（1）Read路径源码分析</h1><div class="content"><h2 id="RocksDB-Prefetch机制设计分析"><a href="#RocksDB-Prefetch机制设计分析" class="headerlink" title="RocksDB Prefetch机制设计分析"></a>RocksDB Prefetch机制设计分析</h2><h3 id="设计哲学"><a href="#设计哲学" class="headerlink" title="设计哲学"></a>设计哲学</h3><p>LSM-Tree的读写权衡</p>
-<p>读路径的核心挑战：多级数据合并、读放大优化</p>
-<h3 id="读路径全景图"><a href="#读路径全景图" class="headerlink" title="读路径全景图"></a>读路径全景图</h3><p>分层结构：MemTable -&gt; Immutable MemTable -&gt; L0 SST -&gt; L1+ SST</p>
-<p>关键模块交互关系图</p>
-<h2 id="核心类分析"><a href="#核心类分析" class="headerlink" title="核心类分析"></a>核心类分析</h2><h3 id="FilePrefetchBuffer"><a href="#FilePrefetchBuffer" class="headerlink" title="FilePrefetchBuffer"></a>FilePrefetchBuffer</h3><p>DBImpl::Get() 入口分析</p>
-<p>处理快照版本（SequenceNumber）</p>
-<p>加锁机制（mutex_）与并发控制</p>
-<p>调用栈：DBImpl -&gt; VersionSet -&gt; MemTable&#x2F;Version</p>
-<h3 id="Async-Read实现"><a href="#Async-Read实现" class="headerlink" title="Async Read实现"></a>Async Read实现</h3><p>MemTable::Get() 实现</p>
-<p>SkipList查找算法源码解析</p>
-<p>内存屏障与并发写入处理</p>
-<p>Immutable MemTable的切换机制</p>
-<p>与Flush过程的协同</p>
-<!-- flag of hidden posts --></div><div class="article-licensing box"><div class="licensing-title"><p>RocksDB-源码分析（1）Read路径源码分析</p><p><a href="https://devillove084.github.io/2025/03/07/RocksDB-1/">https://devillove084.github.io/2025/03/07/RocksDB-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-03-07</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-03-15</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/rocksdb/">rocksdb</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-03-07T13:29:46.000Z" title="3/7/2025, 1:29:46 PM">2025-03-07</time>发表</span><span class="level-item"><time dateTime="2025-03-17T11:33:54.479Z" title="3/17/2025, 11:33:54 AM">2025-03-17</time>更新</span><span class="level-item">1 小时读完 (大约11244个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">RocksDB-源码分析（1）BlockTable 读源码分析</h1><div class="content"><p>本文讨论了RocksDB的Prefetch和Async机制，在回顾LevelDB的SSTable读流程基础上，深入分析RocksDB的BlockBasedTableReader读流程、Prefetch相关函数及异步读取机制，还介绍了相关类设计和简单测试结果。包括：</p>
+<ol>
+<li><strong>LevelDB的SSTable读流程</strong>：分为Open和Get两个步骤，Open包括文件句柄管理、Footer读取等；Get使用二分查找索引定位数据块，缓存优先读取，启用布隆过滤器且所有块未缓存读取时，与文件系统交互6次。</li>
+<li><strong>RocksDB的Open流程</strong>：调用FilePrefetchBuffer预取文件尾部获取Footer，加载元索引块等，缓存关键元数据，减少磁盘I&#x2F;O操作。</li>
+<li><strong>PrefetchTail函数</strong>：确定预读取大小和范围，尝试文件系统预取，通过限制浪费比例确保I&#x2F;O效率提升。</li>
+<li><strong>Get流程</strong>：用户发起请求，经过时间戳和过滤块匹配检查，创建索引迭代器遍历索引块和数据块，最终返回结果。</li>
+<li><strong>异步读取</strong>：非阻塞操作，提高并发性，与预取结合进一步提高系统并发处理能力。</li>
+<li><strong>相关类设计</strong>：FilePrefetchBuffer负责预取缓冲区管理；BlockFetcher独立Block的异步化读取操作，结合多种缓存和Prefetch机制。</li>
+<li><strong>简单测试</strong>：生成测试命令，对比启用和禁用异步扫描的测试结果，RocksDB的Prefetch和Async机制优化了读取性能。</li>
+</ol>
+<span id="more"></span>
+
+<h2 id="LevelDB-SSTable读回顾"><a href="#LevelDB-SSTable读回顾" class="headerlink" title="LevelDB SSTable读回顾"></a>LevelDB SSTable读回顾</h2><p>先简单来回顾一下LevelDB中的SSTable读流程，其时序逻辑如下图所示：</p>
+<pre class="mermaid">sequenceDiagram
+    participant Client
+    participant DBImpl
+    participant Version
+    participant TableCache
+    participant Table
+    participant Block
+    participant BlockIter
+    participant FileSystem
+
+    Client->>DBImpl: Get(key)
+    DBImpl->>Version: Get()
+    activate Version
+
+    Version->>MemTable: Get()
+    activate MemTable
+    MemTable-->>Version: Not Found
+    deactivate MemTable
+
+    Version->>ImmutableMemTable: Get()
+    activate ImmutableMemTable
+    ImmutableMemTable-->>Version: Not Found
+    deactivate ImmutableMemTable
+
+    Note right of Version: SSTable Lookup
+
+        Version->>TableCache: Get(file_number)
+        activate TableCache
+
+        TableCache->>TableCache: FindTable
+        alt Table Not Cached
+            TableCache->>FileSystem: NewRandomAccessFile
+            activate FileSystem
+            FileSystem-->>TableCache: file_handle
+            deactivate FileSystem
+
+            TableCache->>Table: Open
+            activate Table
+
+            Table->>FileSystem: ReadFooter
+            activate FileSystem
+            FileSystem-->>Table: footer_data
+            deactivate FileSystem
+
+            Table->>FileSystem: ReadIndexBlock
+            activate FileSystem
+            FileSystem-->>Table: index_block
+            deactivate FileSystem
+            Table->>Block: new IndexBlock
+        end
+
+        Table->>Block: NewIterator
+        Block-->>Table: index_iter
+        Table->>index_iter: Seek(key)
+        activate index_iter
+
+        loop Binary Search
+            index_iter->>BlockIter: FindMidPoint
+            BlockIter->>BlockIter: CompareKeys
+            alt Key < Mid
+                BlockIter->>BlockIter: AdjustLeft
+            else
+                BlockIter->>BlockIter: AdjustRight
+            end
+        end
+
+        index_iter->>BlockIter: LinearScan
+        BlockIter-->>index_iter: FoundHandle
+        deactivate index_iter
+
+        Table->>Table: BlockReader
+        alt CacheHit
+            Table->>BlockCache: Lookup
+            BlockCache-->>Table: cached_block
+        else
+            Table->>FileSystem: ReadDataBlock
+            activate FileSystem
+            FileSystem-->>Table: raw_block
+            deactivate FileSystem
+            Table->>Block: new DataBlock
+            Table->>BlockCache: Insert
+        end
+
+        Table->>Block: NewIterator
+        Block-->>Table: data_iter
+        Table->>data_iter: Seek(key)
+        activate data_iter
+
+        loop Binary Search
+            data_iter->>BlockIter: FindRestartPoint
+            BlockIter->>BlockIter: CompareEntries
+        end
+
+        loop LinearScan
+            BlockIter->>BlockIter: ParseNextKey
+            alt KeyMatch
+                BlockIter->>BlockIter: ReturnValue
+            end
+        end
+        data_iter-->>Table: value
+        deactivate data_iter
+
+        Table-->>TableCache: value
+        deactivate Table
+        TableCache-->>Version: value
+        deactivate TableCache
+
+
+    Version-->>DBImpl: value
+    deactivate Version
+    DBImpl-->>Client: value</pre>
+
+<p>简单来说，上述的流程主要分为Open和Get两个步骤，其中，Get触发TableFind后，会调用Open并向缓存中写入对该Table的句柄：</p>
+<ol>
+<li><p>SSTable 查找入口</p>
+<ul>
+<li><p>通过 Version 对象获取 SSTable 元数据；</p>
+</li>
+<li><p>调用 TableCache 获取对应的 SSTable 实例（使用 LRU 缓存）；</p>
+</li>
+</ul>
+</li>
+<li><p>Open 流程：</p>
+<ul>
+<li><p>文件句柄管理：通过 FileSystem 打开文件；</p>
+</li>
+<li><p>Footer 读取：获取索引块和元数据块的位置；</p>
+</li>
+<li><p>Index Block 读取：建立 key 到数据块的映射关系</p>
+</li>
+</ul>
+</li>
+<li><p>Get流程：</p>
+<ul>
+<li><p>使用二分查找索引快速定位 key 所在的数据块</p>
+</li>
+<li><p>内部通过 BlockIter 实现：</p>
+<ul>
+<li><p>先通过 FindMidPoint 进行二分比较</p>
+</li>
+<li><p>再通过 LinearScan 进行精确匹配</p>
+</li>
+</ul>
+</li>
+<li><p>数据块读取</p>
+</li>
+<li><p>缓存优先策略：</p>
+<ul>
+<li><p>先检查 BlockCache（默认大小 8MB）</p>
+</li>
+<li><p>未命中时从文件读取并更新缓存</p>
+</li>
+</ul>
+</li>
+<li><p>数据块查找过程</p>
+<ul>
+<li><p>再次使用二分查找定位重启点</p>
+</li>
+<li><p>线性扫描块内条目进行精确匹配</p>
+</li>
+<li><p>解析出 key-value 对并返回结果</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<p>在经典LevelDB结构中，在启用布隆过滤器且所有块未缓存读取的情况下，SSTable时与文件系统的交互次数如下所示：</p>
+<ul>
+<li><p><strong>打开SSTable文件，</strong><code>NewRandomAccessFile</code>：首次访问时创建文件句柄；</p>
+</li>
+<li><p><strong>读取Footer元数据，</strong>&#x4ECE;文件末尾读取48字节校验元数据</p>
+</li>
+<li><p><strong>读取索引块（Index Block），</strong>&#x6839;据Footer定位并读取索引块</p>
+</li>
+<li><p><strong>读取元数据块（Metaindex Block），</strong>&#x89E3;析Footer获取元数据块位置并读取，用于定位过滤器</p>
+</li>
+<li><p><strong>读取过滤块（Filter Block），</strong>&#x4ECE;元数据块解析过滤块位置并读取</p>
+</li>
+<li><p><strong>读取数据块（Data Block），</strong>&#x901A;过索引块找到目标数据块的位置并读取</p>
+</li>
+</ul>
+<p><strong>总计：6次文件交互</strong></p>
+<h2 id="BlockBasedTable-Format"><a href="#BlockBasedTable-Format" class="headerlink" title="BlockBasedTable Format"></a>BlockBasedTable Format</h2><p><img src="/images/block_based_table.png" alt="DWARF格式"></p>
+<p>如图所示，SST 文件从头到尾分成5个部分：</p>
+<blockquote>
+<p>一个 block默认的block大小为4k，通常设置为64k（对应配置项：table_options.block_size）。<br>&#x20;rocksdb的 sst 文件源于leveldb，主要的区别就是在于 MetaBlock 部分，rocksdb 的内容更多，leveldb 的 MetaBlock 当前只有 Filter 的内容。</p>
+</blockquote>
+<ul>
+<li>Footer 固定48字节 指出 IndexBlock 和 MetaIndexBlock 在文件中的偏移量信息，它是元信息的元信息，它位于 sstable 文件的尾部;</li>
+<li>IndexBlock 占用一个 block 空间 记录了 DataBlock 相关的元信息;</li>
+<li>MetaIndexBlock 占用一个 block 空间 各个元信息的Block，包括Filter、Properties(整个table的属性信息)、Compression dictionary、Range deletion tombstone;</li>
+<li>MetaBlock 可能占用多个 block空间 存储布隆过滤器的二进制数据 及其他元信息数据;</li>
+<li>DataBlock 可能占用多个 block空间 存储实际的数据即键值对内容</li>
+</ul>
+<h2 id="BlockBasedTableReader-读流程"><a href="#BlockBasedTableReader-读流程" class="headerlink" title="BlockBasedTableReader 读流程"></a>BlockBasedTableReader 读流程</h2><p>RocksDB截止到编写该文档之前拥有多种文件结构，而BlockBasedTableFormat就是最常见的SST结构，在开始下面的章节之前，希望能够带着一些问题看具体的设计：</p>
+<ul>
+<li><p>当我们在谈论Prefetch时，我们到底在谈论什么？</p>
+</li>
+<li><p>Prefetch和Cache的区别在什么地方？</p>
+</li>
+<li><p>异步IO和Prefetch和缓存结构在LSM结构下如何协同工作？</p>
+</li>
+</ul>
+<h3 id="Open-流程"><a href="#Open-流程" class="headerlink" title="Open 流程"></a>Open 流程</h3><pre class="mermaid">sequenceDiagram
+    participant User
+    participant BlockBasedTable
+    participant FilePrefetchBuffer
+    participant BlockFetcher
+    participant Cache
+    participant Filter
+    participant IndexReader
+
+    User->>BlockBasedTable: Open(file, options)
+    BlockBasedTable->>FilePrefetchBuffer: PrefetchTail
+    FilePrefetchBuffer-->>BlockBasedTable: PrefetchBuffer initialized
+    BlockBasedTable->>BlockFetcher: ReadFooterFromFile
+    BlockFetcher-->>BlockBasedTable: Footer read
+    BlockBasedTable->>BlockFetcher: ReadMetaIndexBlock
+    BlockFetcher-->>BlockBasedTable: Metaindex block read
+    BlockBasedTable->>BlockFetcher: ReadPropertiesBlock
+    BlockFetcher-->>BlockBasedTable: Properties block read
+    BlockBasedTable->>BlockFetcher: ReadRangeDelBlock
+    BlockFetcher-->>BlockBasedTable: Range deletion block read
+    BlockBasedTable->>IndexReader: CreateIndexReader
+    IndexReader-->>BlockBasedTable: Index reader created
+    BlockBasedTable->>Filter: CreateFilterBlockReader
+    Filter-->>BlockBasedTable: Filter reader created
+    BlockBasedTable->>Cache: Insert index and filter blocks
+    Cache-->>BlockBasedTable: Blocks cached
+    BlockBasedTable-->>User: Table reader returned</pre>
+
+<p>简单来说，RocksDB的Open函数也是在同样的流程逻辑中被调用，当memtable查询实效后，转而在version列表中查找，如果TableCache不命中已经hold在内存中的Table，那么就需要调用Open开始新的SSTable读入，同时，具体的：</p>
+<ol>
+<li><p>BlockBasedTable 调用 FilePrefetchBuffer 预取文件尾部，获取Footer；</p>
+</li>
+<li><p>读取文件 Footer，通过 BlockFetcher 读取文件末尾的 48 字节 Footer，包含元索引块、索引块等关键元数据的位置信息；</p>
+</li>
+<li><p>加载元索引块，根据 Footer 定位MetaIndex Block，元索引块存储属性块、过滤器块等元数据的位置信息；</p>
+</li>
+<li><p>读取属性块，解析 SSTable 属性（键数量、压缩类型等），为后续读取提供必要的配置信息；</p>
+</li>
+<li><p>加载范围删除，读取并解析 Range Deletion Block，记录文件中被删除的键范围信息；</p>
+</li>
+<li><p>创建索引读取器，基于索引块创建 IndexReader；</p>
+</li>
+<li><p>初始化过滤器读取器，创建 FilterBlockReader，读取相应的布隆过滤器；</p>
+</li>
+<li><p>缓存关键元数据，将索引块和过滤器块存入 Cache，减少后续读取时的磁盘 I&#x2F;O 操作；</p>
+</li>
+<li><p>返回完成初始化的TableReader。</p>
+</li>
+</ol>
+<blockquote>
+<p>结合上述LevelDB的Open 流程，实际上这里会发生多次File文件指针的读取，那么RocksDB首先做的就是调用PrefetchTail把相应的Footer都load到内存中来。</p>
+</blockquote>
+<h4 id="PrefetchTail-函数"><a href="#PrefetchTail-函数" class="headerlink" title="PrefetchTail 函数"></a>PrefetchTail 函数</h4><pre class="mermaid">graph TD
+    A[开始] --> B[确定预读取大小]
+    B --> C{tail_size != 0?}
+    C -->|是| D[使用 tail_size 作为预读取大小]
+    C -->|否| E[从 tail_prefetch_stats 获取建议大小]
+    E --> F{获取成功?}
+    F -->|是| G[使用建议大小]
+    F -->|否| H[使用默认大小]
+    H --> J[计算预读取范围]
+    J --> K{文件大小 < 预读取大小?}
+    K -->|是| L[从文件开头读取整个文件]
+    K -->|否| M[从文件尾部向前计算预读取范围]
+    M --> N[尝试文件系统预取]
+    N --> O{文件系统支持预取?}
+    O -->|是| P[使用文件系统预取]
+    O -->|否| Q[创建 FilePrefetchBuffer]
+    L --> R[尝试文件系统预取]
+    R --> S{文件系统支持预取?}
+    S -->|是| T[使用文件系统预取]
+    S -->|否| U[创建 FilePrefetchBuffer]
+    T --> V[返回成功状态]
+    U --> W[使用 FilePrefetchBuffer 预取]
+    W --> V
+    P --> V
+    Q --> W
+    V[返回成功状态] --> X[结束]</pre>
+
+<ol>
+<li><p><strong>确定预读取大小</strong>：</p>
+<ul>
+<li><p>如果 <code>tail_size</code> 不为 0，直接使用该值。</p>
+</li>
+<li><p>否则，尝试从 <code>tail_prefetch_stats</code> 获取建议大小。如果获取失败，则根据 <code>prefetch_all</code> 和 <code>preload_all</code> 参数使用默认值（512 KB 或 4 KB）。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>计算预读取范围</strong>：</p>
+<ul>
+<li><p>如果文件大小小于预读取大小，则从文件开头读取整个文件。</p>
+</li>
+<li><p>否则，从文件尾部向前计算预读取的起始偏移量和长度。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>尝试文件系统预取</strong>：</p>
+<ul>
+<li><p>如果文件系统支持预取，则直接使用文件系统的预取功能。</p>
+</li>
+<li><p>如果文件系统不支持预取，则创建一个 <code>FilePrefetchBuffer</code> 实例，并使用它来执行预读取操作。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>返回成功状态</strong>：</p>
+<ul>
+<li>无论使用哪种预取方式，最终都会返回成功状态。</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>关于tail_prefetch_stats的设计，一言以蔽之，通过限制浪费比例（≤12.5%），确保预取带来的I&#x2F;O效率提升不会被过多的空间浪费抵消：</p>
+<ol>
+<li>数据结构与数据收集</li>
+</ol>
+<ul>
+<li><p><strong>环形缓冲区</strong>：使用固定大小的环形缓冲区<code>records_</code>存储最近的kNumTracked次有效预取长度。当新数据到达时，覆盖旧数据，保持最新的记录。</p>
+</li>
+<li><p><strong>RecordEffectiveSize方法</strong>：记录每次预取的有效长度，维护数据的更新。</p>
+</li>
+<li><p>算法步骤：</p>
+<h4 id="a-数据准备"><a href="#a-数据准备" class="headerlink" title="a. 数据准备"></a>a. 数据准备</h4><ul>
+<li><strong>复制并排序历史数据</strong>：将缓冲区中的数据复制到<code>sorted</code>向量中，并按升序排序。排序后便于后续遍历和计算。</li>
+</ul>
+<h4 id="b-遍历候选预取大小"><a href="#b-遍历候选预取大小" class="headerlink" title="b. 遍历候选预取大小"></a>b. 遍历候选预取大小</h4><ul>
+<li><p><strong>初始化参数</strong>：<code>prev_size</code>记录前一个候选大小，<code>max_qualified_size</code>记录当前满足条件的最大候选，<code>wasted</code>累计浪费量。</p>
+</li>
+<li><p><strong>遍历排序后的数据</strong>：从第二个元素开始（i&#x3D;1），逐个计算每个候选的浪费情况。</p>
+<ul>
+<li><p><strong>计算总读取量</strong>：<code>read = sorted[i] * sorted.size()</code>，假设所有历史记录均按当前候选大小预取。</p>
+</li>
+<li><p><strong>更新浪费量</strong>：<code>wasted += (sorted[i] - prev_size) * i</code>。增量浪费为当前候选与前一个候选的差值乘以之前的记录数（i个记录会被填充到当前候选大小）。</p>
+</li>
+<li><p><strong>判断条件</strong>：若累计浪费<code>wasted ≤ read / 8</code>，则当前候选大小合格，更新<code>max_qualified_size</code>。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="c-确定最终预取大小"><a href="#c-确定最终预取大小" class="headerlink" title="c. 确定最终预取大小"></a>c. 确定最终预取大小</h4><ul>
+<li><p><strong>上限限制</strong>：设置最大预取大小<code>kMaxPrefetchSize=512KB</code>，避免过度预取。</p>
+</li>
+<li><p><strong>返回结果</strong>：取<code>max_qualified_size</code>与<code>kMaxPrefetchSize</code>的较小值作为最终建议值。</p>
+</li>
+</ul>
+<ol>
+<li>核心逻辑</li>
+</ol>
+<ul>
+<li><p><strong>浪费计算</strong>：假设历史记录按升序排列为<code>[A, B, C, D, E]</code>，当候选为<code>C</code>时：</p>
+<ul>
+<li><p>所有记录的预取大小均设为C。</p>
+</li>
+<li><p>总读取量为<code>C * 5</code>。</p>
+</li>
+<li><p>浪费量为：<code>(B - A)*1 + (C - B)*2</code>（前两个记录的浪费）。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>条件判断</strong>：若浪费不超过总读取量的1&#x2F;8，则认为该候选大小合理。</p>
+</li>
+</ul>
+</li>
+<li><p>示例</p>
+</li>
+</ul>
+<p>假设Prefetch历史记录排序后为<code>[64KB, 128KB, 256KB, 512KB]</code>：</p>
+<ul>
+<li><p>候选256KB时：</p>
+<ul>
+<li><p>总读取量：<code>256KB * 4 = 1024KB</code>。</p>
+</li>
+<li><p>浪费：<code>(128-64)*1 + (256-128)*2 = 64 + 256 = 320KB</code>。</p>
+</li>
+<li><p>条件：<code>320KB ≤ 1024KB/8 = 128KB</code> → 不满足，故256KB不合格。</p>
+</li>
+</ul>
+</li>
+<li><p>候选128KB时：</p>
+<ul>
+<li><p>总读取量：<code>128KB * 4 = 512KB</code>。</p>
+</li>
+<li><p>浪费：<code>(128-64)*1 = 64KB</code>。</p>
+</li>
+<li><p>条件：<code>64KB ≤ 512KB/8 = 64KB</code> → 满足，故128KB合格。</p>
+</li>
+</ul>
+</li>
+<li><p>最终建议值为128KB（若未超过512KB上限）。</p>
+</li>
+</ul>
+</blockquote>
+<h4 id="ReadFooterFromFile-函数"><a href="#ReadFooterFromFile-函数" class="headerlink" title="ReadFooterFromFile 函数"></a>ReadFooterFromFile 函数</h4><pre class="mermaid">graph TD
+    A[开始] --> B[检查文件大小]
+    B -->|文件大小小于最小编码长度| C[返回错误]
+    B -->|文件大小足够| D[准备读取缓冲区]
+    D --> E[确定读取偏移量]
+    E --> F[尝试从预取缓冲区读取]
+    F -->|预取缓冲区中有数据| G[读取数据成功]
+    F -->|预取缓冲区中无数据| H[从文件读取]
+    H -->|使用直接 I/O| I[通过 AlignedBuf 读取]
+    H -->|不使用直接 I/O| J[直接读取到 footer_buf]
+    I --> K[检查读取结果]
+    J --> K
+    K -->|读取失败| L[返回错误]
+    K -->|读取成功| M[验证读取数据]
+    M -->|数据不完整| N[获取实际文件大小并返回错误]
+    M -->|数据完整| O[解析 Footer 数据]
+    O --> P[验证魔数]
+    P -->|验证失败| Q[返回错误]
+    P -->|验证成功| R[返回成功]
+    G --> M
+    R[返回成功] --> S[结束]
+    L --> S
+    N --> S
+    Q --> S</pre>
+
+<p><code>ReadFooterFromFile</code> 函数用于从文件中读取 SST 文件的 Footer，并验证其完整性。Footer 包含了文件的魔数（Magic Number）和元数据块的块句柄等重要信息。</p>
+<blockquote>
+<p><strong>prefetch 在这里的作用：</strong></p>
+<p>在 <code>ReadFooterFromFile</code> 函数中，<code>prefetch</code> 的作用是尝试从预取缓冲区中读取 Footer 数据。如果预取缓冲区中已经包含了所需的 Footer 数据，则可以直接使用，避免了从磁盘读取的开销。这在顺序读取或频繁访问相同文件的情况下特别有用，可以显著提高读取性能。</p>
+<p>具体来说，<code>prefetch_buffer-&gt;TryReadFromCache</code> 方法会检查预取缓冲区中是否包含指定偏移量和长度的数据。如果包含，则直接返回数据；如果不包含，则返回 false，表示需要从文件中读取数据。</p>
+</blockquote>
+<h4 id="ReadMetaIndexBlock-函数"><a href="#ReadMetaIndexBlock-函数" class="headerlink" title="ReadMetaIndexBlock 函数"></a>ReadMetaIndexBlock 函数</h4><pre class="mermaid">graph TD
+    A[开始] --> B[创建 BlockFetcher 对象]
+    B --> C{启用异步读取且预取缓冲区存在?}
+    C -->|是| D[调用 ReadAsyncBlockContents]
+    C -->|否| E[调用 ReadBlockContents]
+    D --> F[尝试从持久化缓存获取未压缩块]
+    F -->|成功| G[设置压缩类型为无压缩并返回成功]
+    F -->|失败| H[尝试从持久化缓存获取序列化块]
+    H -->|失败| I[使用预取缓冲区异步预取数据块]
+    I --> J[处理预取数据]
+    J --> K[处理数据块的拖尾信息]
+    K --> L{需要重新读取?}
+    L -->|是| M[重新读取数据块]
+    L -->|否| N[解压缩或获取块内容]
+    N --> O[插入未压缩块到持久化缓存]
+    O --> P[返回成功]
+    E --> Q[尝试从持久化缓存获取未压缩块]
+    Q -->|成功| R[设置压缩类型为无压缩并返回成功]
+    Q -->|失败| S[尝试从预取缓冲区获取数据]
+    S -->|成功| T[处理读取错误]
+    S -->|失败| U[从文件读取数据块]
+    U --> V[处理读取错误]
+    V --> W[解压缩或获取块内容]
+    W --> X[插入未压缩块到持久化缓存]
+    X --> Y[返回成功]
+    P --> Z[结束]
+    Y --> Z</pre>
+
+<p><code>ReadMetaIndexBlock</code> 函数用于从文件中读取并解析 SST 文件的元数据索引块（Meta Index Block）。元数据索引块包含文件中其他元数据块（如属性块、过滤器块等）的块句柄，对于后续访问这些元数据块至关重要。</p>
+<p>这里有几个关键的函数：</p>
+<p>入口函数 <code>ReadMetaIndexBlock</code></p>
+<ol>
+<li><p><strong>创建 Meta Index Block 对象</strong>：创建一个 <code>Block_kMetaIndex</code> 对象，用于存储读取和解析后的元数据索引块。</p>
+</li>
+<li><p><strong>调用辅助函数</strong>：调用 <code>ReadAndParseBlockFromFile</code> 函数，传入文件、预取缓冲区、页脚、读取选项、块句柄等参数，读取并解析元数据索引块。</p>
+</li>
+<li><p><strong>错误处理</strong>：如果读取失败，记录错误日志并返回错误状态。</p>
+</li>
+<li><p><strong>返回结果</strong>：将解析后的元数据索引块和其迭代器返回给调用者。</p>
+</li>
+</ol>
+<blockquote>
+<p>辅助函数 <code>ReadAndParseBlockFromFile</code></p>
+<ol>
+<li><p><strong>创建 BlockFetcher 对象</strong>：根据传入的参数创建一个 <code>BlockFetcher</code> 对象，用于处理块的读取和解析。</p>
+</li>
+<li><p><strong>异步读取或同步读取</strong>：根据是否启用异步读取和预取缓冲区的存在，选择调用 <code>ReadAsyncBlockContents</code> 或 <code>ReadBlockContents</code>。</p>
+</li>
+<li><p><strong>解析块内容</strong>：如果读取成功，使用 <code>BlockCreateContext</code> 创建并解析块内容。</p>
+</li>
+<li><p><strong>返回状态</strong>：返回读取和解析的结果状态。</p>
+</li>
+</ol>
+<p>辅助类<code>BlockFetcher</code>&#x20;</p>
+<p><code>ReadAsyncBlockContents</code></p>
+<ol>
+<li><p><strong>尝试从持久化缓存获取未压缩块</strong>：如果成功获取，设置压缩类型为无压缩并返回成功。</p>
+</li>
+<li><p><strong>尝试从持久化缓存获取序列化块</strong>：如果失败，使用预取缓冲区异步预取数据块。</p>
+</li>
+<li><p><strong>处理预取数据</strong>：如果预取成功，处理数据块的拖尾信息；如果需要，重新读取以修复损坏的数据块。</p>
+</li>
+<li><p><strong>解压缩或获取块内容</strong>：根据是否需要解压缩，对数据块进行相应的处理。</p>
+</li>
+<li><p><strong>插入未压缩块到持久化缓存</strong>：如果需要，将未压缩的块插入到持久化缓存中。</p>
+</li>
+</ol>
+<p>辅助类<code>ReadBlockContents</code></p>
+<ol>
+<li><p><strong>尝试从持久化缓存获取未压缩块</strong>：如果成功获取，设置压缩类型为无压缩并返回成功。</p>
+</li>
+<li><p><strong>尝试从预取缓冲区获取数据</strong>：如果预取缓冲区中有数据，直接使用；否则从文件中读取数据块。</p>
+</li>
+<li><p><strong>处理读取错误</strong>：如果读取失败且支持重新读取，尝试重新读取数据块。</p>
+</li>
+<li><p><strong>解压缩或获取块内容</strong>：根据是否需要解压缩，对数据块进行相应的处理。</p>
+</li>
+<li><p><strong>插入未压缩块到持久化缓存</strong>：如果需要，将未压缩的块插入到持久化缓存中。</p>
+</li>
+</ol>
+</blockquote>
+<blockquote>
+<p><strong>&#x20;prefetch 在这里的作用：</strong></p>
+<ul>
+<li><p><strong>再次减少磁盘 I&#x2F;O 次数</strong>：通过预取机制，在读取当前数据块的同时，预测并提前读取可能需要的后续数据块，减少磁盘 I&#x2F;O 次数。</p>
+</li>
+<li><p><strong>提高读取性能</strong>：预取的数据块存储在内存缓冲区中，后续读取时可以直接从缓冲区获取，避免了频繁的磁盘读取操作，提高了读取性能。</p>
+</li>
+<li><p><strong>支持异步读取</strong>：与异步读取结合，允许在不阻塞主线程的情况下预取数据，进一步提高系统的并发处理能力。</p>
+</li>
+</ul>
+<p><strong>异步读取：</strong></p>
+<ul>
+<li><p><strong>非阻塞操作</strong>：异步读取允许在提交读取请求后立即返回，而不等待数据实际读取完成，避免等待。</p>
+</li>
+<li><p><strong>提高并发性</strong>：在等待异步读取完成的同时，可以提前开始Get。</p>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<p>但是针对BlockFetcher这里并没有进行展开，其中封装了对ReadBlock的诸多处理逻辑，这部分在下文展开。</p>
+</blockquote>
+<h4 id="PrefetchIndexAndFilterBlocks-函数"><a href="#PrefetchIndexAndFilterBlocks-函数" class="headerlink" title="PrefetchIndexAndFilterBlocks 函数"></a>PrefetchIndexAndFilterBlocks 函数</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">函数 PrefetchIndexAndFilterBlocks(ro, prefetch_buffer, meta_iter, new_table, prefetch_all, table_options, level, file_size, max_file_size_for_l0_meta_pin, lookup_context):</span><br><span class="line">    <span class="comment">// 查找过滤器块句柄和类型</span></span><br><span class="line">    如果 rep_-&gt;filter_policy 存在:</span><br><span class="line">        name = rep_-&gt;filter_policy-&gt;CompatibilityName()</span><br><span class="line">        对于 每个 filter_type 和 prefix 在 [全量过滤器, 分区过滤器, 过时过滤器] 中:</span><br><span class="line">            filter_block_key = prefix + name</span><br><span class="line">            如果 FindMetaBlock(meta_iter, filter_block_key, &amp;rep_-&gt;filter_handle) 成功:</span><br><span class="line">                rep_-&gt;filter_type = filter_type</span><br><span class="line">                如果 filter_type 是过时过滤器:</span><br><span class="line">                    记录警告日志</span><br><span class="line">                跳出循环</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 查找压缩字典块句柄</span></span><br><span class="line">    s = FindOptionalMetaBlock(meta_iter, kCompressionDictBlockName, &amp;rep_-&gt;compression_dict_handle)</span><br><span class="line">    如果 s 不成功:</span><br><span class="line">        返回 s</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 确定缓存和预读取策略</span></span><br><span class="line">    use_cache = table_options.<span class="type">cache_index_and_filter_blocks</span></span><br><span class="line">    <span class="variable">maybe_flushed</span> <span class="operator">=</span> (level == <span class="number">0</span>) 并且 (file_size &lt;= max_file_size_for_l0_meta_pin)</span><br><span class="line"></span><br><span class="line">    定义 is_pinned 函数:</span><br><span class="line">        参数 pinning_tier 和 fallback_pinning_tier</span><br><span class="line">        根据 pinning_tier 和 maybe_flushed 确定是否缓存</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 确定是否缓存和预读取索引块</span></span><br><span class="line">    pin_index = 如果是二级索引搜索则使用 pin_top_level_index，否则使用 <span class="type">pin_unpartitioned</span></span><br><span class="line">    <span class="variable">prefetch_index</span> <span class="operator">=</span> prefetch_all 或者 pin_index</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建索引读取器</span></span><br><span class="line">    s = new_table-&gt;CreateIndexReader(ro, prefetch_buffer, meta_iter, use_cache, prefetch_index, pin_index, lookup_context, &amp;index_reader)</span><br><span class="line">    如果 s 不成功:</span><br><span class="line">        返回 s</span><br><span class="line">    rep_-&gt;index_reader = 移动(index_reader)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 缓存依赖的索引块分区</span></span><br><span class="line">    如果 prefetch_all 或者 pin_partition:</span><br><span class="line">        s = rep_-&gt;index_reader-&gt;CacheDependencies(ro, pin_partition, prefetch_buffer)</span><br><span class="line">        如果 s 不成功:</span><br><span class="line">            返回 s</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 确定是否缓存和预读过滤器块</span></span><br><span class="line">    pin_filter = 如果是分区过滤器则使用 pin_top_level_index，否则使用 <span class="type">pin_unpartitioned</span></span><br><span class="line">    <span class="variable">prefetch_filter</span> <span class="operator">=</span> prefetch_all 或者 pin_filter</span><br><span class="line"></span><br><span class="line">    如果 rep_-&gt;filter_policy 存在:</span><br><span class="line">        filter = new_table-&gt;CreateFilterBlockReader(ro, prefetch_buffer, use_cache, prefetch_filter, pin_filter, lookup_context)</span><br><span class="line">        如果 filter 不为空:</span><br><span class="line">            如果 prefetch_all 或者 pin_partition:</span><br><span class="line">                s = filter-&gt;CacheDependencies(ro, pin_partition, prefetch_buffer)</span><br><span class="line">                如果 s 不成功:</span><br><span class="line">                    返回 s</span><br><span class="line">            rep_-&gt;filter = 移动(filter)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建压缩字典读取器</span></span><br><span class="line">    如果 rep_-&gt;compression_dict_handle 不为空:</span><br><span class="line">        s = UncompressionDictReader::Create(<span class="built_in">this</span>, ro, prefetch_buffer, use_cache, prefetch_all || pin_unpartitioned, pin_unpartitioned, lookup_context, &amp;uncompression_dict_reader)</span><br><span class="line">        如果 s 不成功:</span><br><span class="line">            返回 s</span><br><span class="line">        rep_-&gt;uncompression_dict_reader = 移动(uncompression_dict_reader)</span><br><span class="line"></span><br><span class="line">    返回 s</span><br></pre></td></tr></table></figure>
+
+<p>入口函数 <code>PrefetchIndexAndFilterBlocks</code></p>
+<ol>
+<li><p><strong>查找过滤器块句柄和类型</strong>：</p>
+<ul>
+<li><p>根据过滤器策略的兼容名称，尝试查找不同类型的过滤器块（如全量过滤器、分区过滤器等）。</p>
+</li>
+<li><p>如果找到，设置过滤器类型和块句柄；如果找到的是过时的过滤器类型，记录警告日志。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>查找压缩字典块句柄</strong>：</p>
+<ul>
+<li>调用 <code>FindOptionalMetaBlock</code> 查找压缩字典块的块句柄。</li>
+</ul>
+</li>
+<li><p><strong>确定缓存和预读取策略</strong>：</p>
+<ul>
+<li>根据配置和文件级别，确定是否缓存和预读取索引块、过滤器块和压缩字典块。</li>
+</ul>
+</li>
+<li><p><strong>创建索引读取器</strong>：</p>
+<ul>
+<li><p>根据索引类型，创建相应的索引读取器（如分区索引读取器、二分查找索引读取器等）。</p>
+</li>
+<li><p>如果是哈希索引，检查是否缺少前缀提取器，如果是，则回退到二分查找索引。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>缓存依赖的索引块分区</strong>：</p>
+<ul>
+<li>如果需要预读取或缓存分区，调用索引读取器的 <code>CacheDependencies</code> 方法。</li>
+</ul>
+</li>
+<li><p><strong>创建过滤器块读取器</strong>：</p>
+<ul>
+<li><p>根据过滤器类型，创建相应的过滤器块读取器（如分区过滤器块读取器、全量过滤器块读取器等）。</p>
+</li>
+<li><p>如果需要预读取或缓存分区，调用过滤器块读取器的 <code>CacheDependencies</code> 方法。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>创建压缩字典读取器</strong>：</p>
+<ul>
+<li>如果存在压缩字典块句柄，创建压缩字典读取器。</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>辅助函数 <code>FindOptionalMetaBlock</code> 和 <code>FindMetaBlock</code></p>
+<ol>
+<li><p><strong>查找元数据块</strong>：</p>
+<ul>
+<li><p>使用元数据索引迭代器查找指定名称的元数据块。</p>
+</li>
+<li><p>如果找到，解析块句柄并返回；如果未找到，返回空块句柄和相应状态。</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>辅助函数 <code>CreateIndexReader</code></p>
+<ol>
+<li><p><strong>确定索引块句柄</strong>：</p>
+<ul>
+<li>根据文件页脚格式版本，从页脚中获取索引块句柄，或通过元数据索引迭代器查找。</li>
+</ul>
+</li>
+<li><p><strong>创建索引读取器</strong>：</p>
+<ul>
+<li>根据索引类型，创建相应的索引读取器。</li>
+</ul>
+</li>
+</ol>
+<p>辅助函数 <code>CreateFilterBlockReader</code></p>
+<ol>
+<li><p><strong>创建过滤器块读取器</strong>：</p>
+<ul>
+<li>根据过滤器类型，创建相应的过滤器块读取器。</li>
+</ul>
+</li>
+</ol>
+<p>辅助函数 <code>UncompressionDictReader::Create</code> 和 <code>ReadUncompressionDictionary</code></p>
+<ol>
+<li><p><strong>读取压缩字典</strong>：</p>
+<ul>
+<li><p>如果需要预读取或不使用缓存，读取压缩字典块并缓存。</p>
+</li>
+<li><p>创建压缩字典读取器。</p>
+</li>
+</ul>
+</li>
+</ol>
+</blockquote>
+<h3 id="Get-流程"><a href="#Get-流程" class="headerlink" title="Get 流程"></a>Get 流程</h3><pre class="mermaid">sequenceDiagram
+    participant User
+    participant BlockBasedTable
+    participant FilterBlockReader
+    participant IndexIterator
+    participant DataBlockIter
+    participant BlockCache
+    participant Prefetcher
+
+    User->>BlockBasedTable: Get(key)
+    BlockBasedTable->>BlockBasedTable: TimestampMayMatch()
+    alt Timestamp不匹配
+        BlockBasedTable-->>User: 返回Status::OK()
+    else
+        BlockBasedTable->>FilterBlockReader: FullFilterKeyMayMatch()
+        FilterBlockReader-->>BlockBasedTable: may_match
+        alt may_match=false
+            BlockBasedTable-->>User: 返回Status::OK()
+        else
+            BlockBasedTable->>IndexIterator: NewIndexIterator()
+            IndexIterator->>BlockBasedTable: iiter
+            loop 遍历索引块
+                BlockBasedTable->>IndexIterator: Seek(key)
+                IndexIterator->>BlockBasedTable: 返回IndexValue(v)
+                BlockBasedTable->>BlockBasedTable: NewDataBlockIterator()
+                BlockBasedTable->>Prefetcher: PrefetchIfNeeded()
+                Prefetcher->>BlockCache: 检查/预取数据块
+                BlockCache-->>Prefetcher: 数据块句柄
+                BlockBasedTable->>DataBlockIter: SeekForGet(key)
+                DataBlockIter->>BlockBasedTable: may_exist
+                alt may_exist
+                    loop 遍历数据块条目
+                        DataBlockIter->>GetContext: SaveValue()
+                        GetContext-->>DataBlockIter: 是否继续
+                    end
+                end
+            end
+        end
+    end
+    BlockBasedTable-->>User: 返回Status</pre>
+
+<ol>
+<li><p><strong>用户发起请求</strong></p>
+<ul>
+<li>用户调用<code>BlockBasedTable</code>的<code>Get(key)</code>方法，传入要查找的键<code>key</code>，启动数据获取流程。</li>
+</ul>
+</li>
+<li><p><strong>时间戳匹配检查</strong></p>
+<ul>
+<li><p><code>BlockBasedTable</code>接收到请求后，首先调用自身的<code>TimestampMayMatch()</code>方法，检查当前时间戳是否匹配。</p>
+</li>
+<li><p>如果时间戳不匹配，<code>BlockBasedTable</code>直接向用户返回<code>Status::OK()</code>，表示操作完成但未找到匹配数据，流程结束。</p>
+</li>
+<li><p>如果时间戳匹配，流程进入下一步。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>过滤块匹配检查</strong></p>
+<ul>
+<li><p><code>BlockBasedTable</code>调用<code>FilterBlockReader</code>的<code>FullFilterKeyMayMatch()</code>方法，传入完整过滤键，检查该键是否可能在过滤块中匹配。</p>
+</li>
+<li><p><code>FilterBlockReader</code>执行匹配检查后，将结果<code>may_match</code>返回给<code>BlockBasedTable</code>。</p>
+</li>
+<li><p>如果<code>may_match</code>为<code>false</code>，说明过滤块中明确不存在该键，<code>BlockBasedTable</code>向用户返回<code>Status::OK()</code>，流程结束。</p>
+</li>
+<li><p>如果<code>may_match</code>为<code>true</code>，说明过滤块中可能存在该键，流程继续。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>创建索引迭代器</strong></p>
+<ul>
+<li><p><code>BlockBasedTable</code>调用<code>IndexIterator</code>的<code>NewIndexIterator()</code>方法，创建一个新的索引迭代器。</p>
+</li>
+<li><p><code>IndexIterator</code>返回创建好的索引迭代器<code>iiter</code>给<code>BlockBasedTable</code>。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>遍历索引块</strong></p>
+<ul>
+<li><p>进入循环，遍历索引块：</p>
+<ul>
+<li><p><code>BlockBasedTable</code>调用<code>IndexIterator</code>的<code>Seek(key)</code>方法，在索引块中查找与键<code>key</code>匹配的索引项。</p>
+</li>
+<li><p><code>IndexIterator</code>返回找到的索引值<code>v</code>给<code>BlockBasedTable</code>。</p>
+</li>
+<li><p><code>BlockBasedTable</code>根据索引值<code>v</code>，调用自身的<code>NewDataBlockIterator()</code>方法，创建一个新的数据块迭代器。</p>
+</li>
+<li><p><code>BlockBasedTable</code>调用<code>Prefetcher</code>的<code>PrefetchIfNeeded()</code>方法，检查是否需要进行数据预取。</p>
+</li>
+<li><p><code>Prefetcher</code>检查或预取数据块，与<code>BlockCache</code>交互，获取数据块句柄，并将句柄返回给<code>Prefetcher</code>。</p>
+</li>
+<li><p><code>BlockBasedTable</code>调用<code>DataBlockIter</code>的<code>SeekForGet(key)</code>方法，在数据块中查找键<code>key</code>。</p>
+</li>
+<li><p><code>DataBlockIter</code>返回是否可能存在匹配数据的标志<code>may_exist</code>给<code>BlockBasedTable</code>。</p>
+</li>
+<li><p>如果<code>may_exist</code>为<code>true</code>，进入一个循环，遍历数据块条目：</p>
+<ul>
+<li><p><code>DataBlockIter</code>调用<code>GetContext</code>的<code>SaveValue()</code>方法，保存找到的值。</p>
+</li>
+<li><p><code>GetContext</code>返回是否继续遍历的指示给<code>DataBlockIter</code>。</p>
+</li>
+</ul>
+</li>
+<li><p>循环结束后，继续遍历索引块，直到所有可能的索引项都被检查完毕。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>返回结果给用户</strong></p>
+<ul>
+<li>完成所有遍历和查找操作后，<code>BlockBasedTable</code>向用户返回最终的<code>Status</code>，表示数据获取操作的结果。</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>再次重申相关类的职责的划分：</p>
+<ul>
+<li><p><code>BlockBasedTable</code>：作为核心协调者，负责接收用户请求，进行初步的时间戳和过滤块匹配检查，创建和管理索引迭代器及数据块迭代器，与预取器交互，以及最终将结果返回给用户。</p>
+</li>
+<li><p><code>FilterBlockReader</code>：负责执行过滤块的匹配检查，快速筛选出不可能包含目标键的块，提高查找效率。</p>
+</li>
+<li><p><code>IndexIterator</code>：用于遍历索引块，查找与目标键匹配的索引项，提供索引值以便进一步定位数据块。</p>
+</li>
+<li><p><code>DataBlockIter</code>：在数据块中进行具体的数据查找，根据给定的键定位到对应的条目，并与<code>GetContext</code>协作保存找到的值。</p>
+</li>
+<li><p><code>BlockCache</code>：缓存数据块，提高数据访问速度，当需要预取数据块时，提供数据块句柄。</p>
+</li>
+<li><p><code>Prefetch</code>：负责根据需要进行数据预取操作，提前将可能需要的数据块加载到缓存中，减少后续访问的延迟。</p>
+</li>
+</ul>
+</blockquote>
+<h4 id="BlockBasedTableIterator-SeekImpl"><a href="#BlockBasedTableIterator-SeekImpl" class="headerlink" title="BlockBasedTableIterator SeekImpl"></a>BlockBasedTableIterator SeekImpl</h4><pre class="mermaid">graph TD
+    A[开始SeekImpl] --> B{首次调用?}
+    B -- 是 --> C[设置seek_key_prefix_for_readahead_trimming_]
+    C --> D[重置缓存查找变量]
+    D --> E{自动调整readahead_size?}
+    E -- 是 --> F[设置readahead_cache_lookup_=true]
+    E -- 否 --> G
+    F --> G[CheckPrefixMayMatch]
+    G -- 前缀不匹配 --> H[重置数据迭代器]
+    G -- 匹配 --> I{需要重新定位索引?}
+    I -- 是 --> J[IndexIterator.Seektarget]
+    I -- 否 --> K[检查是否同一数据块]
+    J --> K
+    K --> L{同一数据块且有效?}
+    L -- 是 --> M[直接使用现有数据块迭代器]
+    L -- 否 --> N[初始化数据块]
+    N --> O{异步预取开启?}
+    O -- 是 --> P[AsyncInitDataBlock首次尝试]
+    P -- 返回TryAgain --> Q[设置async_read_in_progress_=true]
+    O -- 否 --> R[InitDataBlock同步初始化]
+    Q --> S[结束首次调用]
+    R --> M
+    M --> T[执行数据块Seek]
+    T --> U[FindKeyForward前向查找]
+    U --> V[检查边界条件]
+    V --> W[断言验证位置]
+    W --> Z[结束流程]
+
+    B -- 否 --> X[SeekSecondPass二次处理]
+    X --> Y[AsyncInitDataBlock二次尝试]
+    Y --> T</pre>
+
+<p><strong>首次调用流程</strong></p>
+<ul>
+<li><p><strong>首次调用判断</strong>：SeekImpl进入之后判断是否是首次调用。如果是首次调用，则设置用于读取预取修剪的前缀键，以优化读取性能；否则跳转到“SeekSecondPass二次处理”。</p>
+</li>
+<li><p><strong>设置与重置</strong>：在首次调用的情况下，设置seek_key_prefix_for_readahead_trimming_后，重置缓存查找变量，为后续操作做准备。</p>
+</li>
+<li><p><strong>自动调整判断</strong>：判断是否自动调整readahead_size。如果是，设置readahead_cache_lookup_&#x3D;true，表示启用读取预取缓存查找；否则直接进入“CheckPrefixMayMatch”节点。</p>
+</li>
+<li><p><strong>前缀匹配检查</strong>：在“CheckPrefixMayMatch”节点，检查前缀是否匹配。前缀不匹配则重置数据迭代器，重新开始数据查找；匹配则进一步判断是否需要重新定位索引。</p>
+</li>
+<li><p><strong>索引重新定位</strong>：如果需要重新定位索引，执行IndexIterator.Seektarget操作，对索引进行定位；否则检查是否同一数据块。</p>
+</li>
+<li><p><strong>数据块处理</strong>：检查是否同一数据块且有效。如果是，直接使用现有数据块迭代器；否则初始化数据块。初始化数据块时，判断异步预取是否开启。开启则进行AsyncInitDataBlock首次尝试，若返回TryAgain，设置async_read_in_progress_&#x3D;true；不开启则同步初始化数据块。</p>
+</li>
+<li><p><strong>数据查找与结束</strong>：数据块初始化后，执行数据块Seek操作，进行数据查找。通过FindKeyForward前向查找，检查边界条件，断言验证位置，最终结束流程。</p>
+</li>
+</ul>
+<p><strong>非首次调用流程</strong></p>
+<ul>
+<li><strong>二次处理</strong>：如果不是首次调用，进入“SeekSecondPass二次处理”，再次尝试AsyncInitDataBlock，然后执行数据块Seek操作，继续后续的数据查找流程，直至结束。</li>
+</ul>
+<p><strong>异步预取工作流程：</strong></p>
+<ol>
+<li><p><strong>首次Seek调用</strong>：</p>
+<ul>
+<li><p>检查<code>async_read_in_progress_</code>标志</p>
+</li>
+<li><p>触发<code>AsyncInitDataBlock(is_first_pass=true)</code></p>
+</li>
+<li><p>通过<code>PrefetchIfNeeded</code>发起异步IO请求</p>
+</li>
+<li><p>如果数据不在缓存中，返回<code>Status::TryAgain</code></p>
+</li>
+<li><p>设置<code>async_read_in_progress_=true</code></p>
+</li>
+</ul>
+</li>
+<li><p><strong>二次Seek调用</strong>：</p>
+<ul>
+<li><p>进入<code>SeekSecondPass</code></p>
+</li>
+<li><p>调用<code>AsyncInitDataBlock(is_first_pass=false)</code></p>
+</li>
+<li><p>使用已预取的数据块初始化<code>block_iter_</code></p>
+</li>
+<li><p>执行常规Seek操作</p>
+</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>总结：</p>
+<ul>
+<li><p><strong>预取机制</strong>：系统通过预取数据到缓冲区，减少用户实际读取时的等待时间，提高性能。</p>
+</li>
+<li><p><strong>异步 IO</strong>：文件读取操作是异步的，不会阻塞用户线程，适合处理大量数据或高延迟的 IO 操作。</p>
+</li>
+<li><p><strong>缓冲区管理</strong>：缓冲区会动态分配和清理，确保资源高效利用，同时通过状态标记（如 <code>async_read_in_progress</code>）管理读取过程；</p>
+</li>
+<li><p><strong>回调机制</strong>：IO 完成后通过回调通知；</p>
+</li>
+</ul>
+</blockquote>
+<h2 id="FilePrefetchBuffer结构设计"><a href="#FilePrefetchBuffer结构设计" class="headerlink" title="FilePrefetchBuffer结构设计"></a>FilePrefetchBuffer结构设计</h2><pre class="mermaid">sequenceDiagram
+    participant User
+    participant FilePrefetchBuffer
+    participant RandomAccessFileReader
+    participant FileSystem
+    participant BufferInfo
+
+    User->>FilePrefetchBuffer: PrefetchAsync(opts, reader, offset, n, result)
+    
+    FilePrefetchBuffer->>FilePrefetchBuffer: 中止未完成IO (AbortAllIOs)
+    FilePrefetchBuffer->>FilePrefetchBuffer: 清理过期数据 (ClearOutdatedData)
+    
+    alt 数据已在缓冲区
+        FilePrefetchBuffer->>User: 立即返回Status::OK
+    else 需要新预取
+        FilePrefetchBuffer->>BufferInfo: 分配新缓冲区 (AllocateBuffer)
+        FilePrefetchBuffer->>BufferInfo: 计算预取范围 (ReadAheadSizeTuning)
+        FilePrefetchBuffer->>RandomAccessFileReader: ReadAsync(请求)
+        RandomAccessFileReader->>FileSystem: 提交异步IO请求
+        FileSystem-->>RandomAccessFileReader: 返回IO句柄
+        RandomAccessFileReader-->>FilePrefetchBuffer: 存储io_handle
+        FilePrefetchBuffer->>BufferInfo: 标记async_read_in_progress=true
+    end
+    
+    loop 异步回调处理
+        FileSystem->>FilePrefetchBuffer: PrefetchAsyncCallback(请求结果)
+        FilePrefetchBuffer->>BufferInfo: 更新缓冲区数据
+        FilePrefetchBuffer->>BufferInfo: async_read_in_progress=false
+    end
+    
+    User->>FilePrefetchBuffer: TryReadFromCache
+    FilePrefetchBuffer->>BufferInfo: 检查数据有效性
+    BufferInfo-->>User: 返回数据切片</pre>
+
+<ol>
+<li><p>用户发起预取请求</p>
+<ul>
+<li><p>向 <strong>FilePrefetchBuffer</strong> 发起 <code>PrefetchAsync</code> 请求，传入参数包括选项（<code>opts</code>）、文件读取器（<code>reader</code>）、偏移量（<code>offset</code>）、预取字节数（<code>n</code>）以及结果回调（<code>result</code>）。</p>
+</li>
+<li><p>这是整个流程的起点，用户希望从文件的某个位置开始预取数据。</p>
+</li>
+</ul>
+</li>
+<li><p>预取缓冲区的初始化操作</p>
+<ul>
+<li><p><strong>FilePrefetchBuffer</strong> 收到请求后，首先执行两个内部操作：</p>
+<ol>
+<li><p><strong>中止未完成的 IO 操作（AbortAllIOs）</strong>：确保没有遗留的 IO 请求在处理，避免冲突。</p>
+</li>
+<li><p><strong>清理过期数据（ClearOutdatedData）</strong>：移除缓冲区中不再需要或已经失效的数据，为新数据腾出空间。</p>
+</li>
+</ol>
+</li>
+</ul>
+</li>
+<li><p>检查数据是否已在缓冲区</p>
+<ul>
+<li><p><strong>FilePrefetchBuffer</strong> 检查请求的数据是否已经存在于缓冲区中。</p>
+<ul>
+<li><p><strong>如果数据已在缓冲区（数据已在缓冲区分支）</strong>：</p>
+<ul>
+<li>直接向 <strong>User</strong> 返回 <code>Status::OK</code>，表示预取成功，无需进一步操作。</li>
+</ul>
+</li>
+<li><p><strong>如果需要新预取（需要新预取分支）</strong>：</p>
+<ul>
+<li><p><strong>FilePrefetchBuffer</strong> 向 <strong>BufferInfo</strong> 发起两个请求：</p>
+<ol>
+<li><p><strong>分配新缓冲区（AllocateBuffer）</strong>：为即将预取的数据分配新的缓冲空间。</p>
+</li>
+<li><p><strong>计算预取范围（ReadAheadSizeTuning）</strong>：根据策略计算本次预取的实际范围，可能比用户请求的范围更大，以提高效率。</p>
+</li>
+</ol>
+</li>
+<li><p><strong>FilePrefetchBuffer</strong> 调用 <strong>RandomAccessFileReader</strong> 的 <code>ReadAsync</code> 方法，发起异步读取请求。</p>
+</li>
+<li><p><strong>RandomAccessFileReader</strong> 将读取请求提交给 <strong>FileSystem</strong>，由后者执行实际的 IO 操作。</p>
+</li>
+<li><p><strong>FileSystem</strong> 返回 IO 句柄给 <strong>RandomAccessFileReader</strong>，后者将其存储在 <strong>FilePrefetchBuffer</strong> 中。</p>
+</li>
+<li><p><strong>FilePrefetchBuffer</strong> 通过 <strong>BufferInfo</strong> 标记 <code>async_read_in_progress=true</code>，表示异步读取正在进行。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>异步回调处理</p>
+<ul>
+<li><p>当 <strong>FileSystem</strong> 完成 IO 操作后，会触发回调 <code>PrefetchAsyncCallback</code>，将请求结果传递给 <strong>FilePrefetchBuffer</strong>。</p>
+</li>
+<li><p><strong>FilePrefetchBuffer</strong> 收到回调后，通过 <strong>BufferInfo</strong> 更新缓冲区数据，并将 <code>async_read_in_progress</code> 标记为 <code>false</code>，表示读取完成。</p>
+</li>
+<li><p>这个过程可能循环多次，处理多个 IO 请求的回调。</p>
+</li>
+</ul>
+<ol>
+<li>用户尝试从缓存读取数据</li>
+</ol>
+<ul>
+<li><p><strong>User</strong> 调用 <strong>FilePrefetchBuffer</strong> 的 <code>TryReadFromCache</code> 方法，尝试从缓冲区中读取数据。</p>
+</li>
+<li><p><strong>FilePrefetchBuffer</strong> 通过 <strong>BufferInfo</strong> 检查数据的有效性，确保数据完整且可用。</p>
+</li>
+<li><p>最终，<strong>BufferInfo</strong> 将数据切片返回给 <strong>User</strong>，完成整个流程。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="TryReadFromCache"><a href="#TryReadFromCache" class="headerlink" title="TryReadFromCache"></a><code>TryReadFromCache</code></h3><pre class="mermaid">graph TD
+    A[TryReadFromCache调用] --> B{数据在缓冲区?}
+    B -- 是 --> C[直接返回数据]
+    B -- 否 --> D{需要预取?}
+    D -- 是 --> E[触发Prefetch/PrefetchAsync]
+    E --> F{同步模式?}
+    F -- 是 --> G[同步读取数据到缓冲区]
+    F -- 否 --> H[提交异步IO请求]
+    H --> I[注册回调函数]
+    I --> J[后台处理IO完成]
+    J --> K[更新缓冲区状态]
+    D -- 否 --> L[返回未命中]
+    
+    subgraph 异步处理流程
+        H --> M[文件系统处理请求]
+        M --> N[数据就绪触发回调]
+        N --> O[将数据拷贝到缓冲区]
+        O --> P[标记IO完成]
+    end</pre>
+
+<ol>
+<li><p><strong>检查数据是否在缓冲区</strong></p>
+<ul>
+<li><p>判断数据是否已经在缓冲区中：</p>
+<ul>
+<li><p>如果数据在缓冲区，直接返回数据，流程结束。</p>
+</li>
+<li><p>如果数据不在缓冲区，进入下一步判断是否需要预取。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>判断是否需要预取</strong></p>
+<ul>
+<li><p>判断当前情况下是否需要进行数据预取：</p>
+<ul>
+<li><p>如果需要预取，触发<code>Prefetch</code>或<code>PrefetchAsync</code>操作，进入预取流程。</p>
+</li>
+<li><p>如果不需要预取，直接返回未命中结果，流程结束。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>预取流程</strong></p>
+<ul>
+<li><p><strong>触发预取操作</strong>：根据配置或策略，决定是进行同步预取还是异步预取。</p>
+</li>
+<li><p><strong>同步模式判断</strong>：判断是否采用同步模式进行预取：</p>
+<ul>
+<li><p>如果是同步模式，直接进行同步读取数据到缓冲区的操作。</p>
+</li>
+<li><p>如果是异步模式，提交异步IO请求，并注册回调函数，等待后台处理IO完成。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>异步处理流程</strong></p>
+<ul>
+<li><p><strong>提交异步IO请求</strong>：将IO请求提交给文件系统。</p>
+</li>
+<li><p><strong>注册回调函数</strong>：为IO完成事件注册回调函数，以便在数据就绪时进行后续处理。</p>
+</li>
+<li><p><strong>后台处理IO完成</strong>：在后台等待IO操作完成。</p>
+</li>
+<li><p><strong>更新缓冲区状态</strong>：IO完成后，更新缓冲区的状态，反映数据已加载到缓冲区。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>异步完成流程</strong></p>
+<ul>
+<li><p><strong>文件系统处理请求</strong>：文件系统接收到IO请求后，进行相应的处理。</p>
+</li>
+<li><p><strong>数据就绪触发回调</strong>：当数据准备就绪时，触发之前注册的回调函数。</p>
+</li>
+<li><p><strong>将数据拷贝到缓冲区</strong>：在回调函数中，将数据从文件系统拷贝到缓冲区。</p>
+</li>
+<li><p><strong>标记IO完成</strong>：完成数据拷贝后，标记IO操作为已完成。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h2 id="BlockFetcher类设计"><a href="#BlockFetcher类设计" class="headerlink" title="BlockFetcher类设计"></a>BlockFetcher类设计</h2><pre class="mermaid">classDiagram
+    class BlockFetcher {
+        -file_ : RandomAccessFileReader*
+        -prefetch_buffer_ : FilePrefetchBuffer*
+        -heap_buf_ : CacheAllocationPtr
+        -compressed_buf_ : CacheAllocationPtr
+        -direct_io_buf_ : AlignedBuf
+        -ReadBlock(bool) : void
+        -TryGetFromPrefetchBuffer() : bool
+        -TryGetSerializedBlockFromPersistentCache() : bool
+        +ReadBlockContents() : IOStatus
+    }
+    
+    class FilePrefetchBuffer {
+        +TryReadFromCache(...) : bool
+    }
+    
+    class PersistentCacheHelper {
+        +LookupUncompressed(...) : Status
+        +InsertSerialized(...) : void
+    }
+    
+    class RandomAccessFileReader {
+        +Read(...) : IOStatus
+        +MultiRead(...) : IOStatus
+    }
+    
+    BlockFetcher --> FilePrefetchBuffer : 使用
+    BlockFetcher --> PersistentCacheHelper : 使用
+    BlockFetcher --> RandomAccessFileReader : 使用
+    BlockFetcher --> Compression : 解压处理</pre>
+
+<ul>
+<li><p><strong>&#x20;FilePrefetchBuffer</strong>：<code>BlockFetcher</code> 通过其 <code>prefetch_buffer_</code> 属性与 <code>FilePrefetchBuffer</code> 交互，调用 <code>TryReadFromCache</code> 方法尝试从预取缓冲区获取数据。</p>
+</li>
+<li><p><strong>&#x20;PersistentCacheHelper</strong>：<code>BlockFetcher</code> 使用 <code>PersistentCacheHelper</code> 来从持久化缓存中获取未压缩数据或插入序列化数据。</p>
+</li>
+<li><p><strong>RandomAccessFileReader</strong>：<code>BlockFetcher</code> 通过 <code>file_</code> 属性与 <code>RandomAccessFileReader</code> 交互，直接从文件读取数据。</p>
+</li>
+<li><p><strong>Compression</strong>：<code>BlockFetcher</code> 在需要时调用 <code>Compression</code> 组件进行解压处理。</p>
+</li>
+</ul>
+<h3 id="ReadBlock-流程"><a href="#ReadBlock-流程" class="headerlink" title="ReadBlock 流程"></a>ReadBlock 流程</h3><pre class="mermaid">sequenceDiagram
+    participant Caller
+    participant BlockFetcher
+    participant PersistentCache
+    participant FilePrefetchBuffer
+    participant FileReader
+    
+    Caller->>BlockFetcher: ReadBlockContents()
+    
+    alt 持久化缓存命中
+        BlockFetcher->>PersistentCache: LookupUncompressed
+        PersistentCache-->>BlockFetcher: 返回未压缩块
+    else 预取缓冲区命中
+        BlockFetcher->>FilePrefetchBuffer: TryReadFromCache
+        FilePrefetchBuffer-->>BlockFetcher: 返回数据切片
+        BlockFetcher->>BlockFetcher: 处理尾部校验
+    else 需要文件读取
+        BlockFetcher->>BlockFetcher: PrepareBufferForBlockFromFile
+        BlockFetcher->>FileReader: Read/MultiRead
+        FileReader->>FileSystem: 提交IO请求
+        FileSystem-->>FileReader: 返回数据
+        FileReader-->>BlockFetcher: 返回IO状态
+        BlockFetcher->>BlockFetcher: 处理尾部校验
+        alt 数据压缩
+            BlockFetcher->>Compression: 解压处理
+        end
+        BlockFetcher->>PersistentCache: 插入缓存
+    end
+    
+    BlockFetcher-->>Caller: 返回IO状态</pre>
+
+<ol>
+<li><p><strong>调用ReadBlockContents</strong></p>
+<ul>
+<li>流程起始于<code>Caller</code>调用<code>BlockFetcher</code>的<code>ReadBlockContents()</code>方法，表示请求读取某个数据块的内容。</li>
+</ul>
+</li>
+<li><p><strong>检查持久化缓存是否命中</strong></p>
+<ul>
+<li><p><code>BlockFetcher</code>首先尝试从持久化缓存中获取数据，调用<code>PersistentCache</code>的<code>LookupUncompressed</code>方法。</p>
+</li>
+<li><p>如果持久化缓存命中，<code>PersistentCache</code>返回未压缩块给<code>BlockFetcher</code>，流程直接进入结束步骤，返回IO状态给调用者。</p>
+</li>
+<li><p>如果持久化缓存未命中，流程进入下一步。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>检查预取缓冲区是否命中</strong></p>
+<ul>
+<li><p><code>BlockFetcher</code>调用<code>FilePrefetchBuffer</code>的<code>TryReadFromCache</code>方法，尝试从预取缓冲区中读取数据。</p>
+</li>
+<li><p>如果预取缓冲区命中，<code>FilePrefetchBuffer</code>返回数据切片给<code>BlockFetcher</code>。</p>
+</li>
+<li><p><code>BlockFetcher</code>处理尾部校验，确保数据的完整性。</p>
+</li>
+<li><p>流程进入结束步骤，返回IO状态给调用者。</p>
+</li>
+<li><p>如果预取缓冲区未命中，流程进入下一步。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>需要文件读取</strong></p>
+<ul>
+<li><p><code>BlockFetcher</code>准备从文件中读取数据块，调用自身的<code>PrepareBufferForBlockFromFile</code>方法。</p>
+</li>
+<li><p><code>BlockFetcher</code>调用<code>FileReader</code>的<code>Read/MultiRead</code>方法，提交IO读取请求。</p>
+</li>
+<li><p><code>FileReader</code>与文件系统交互，提交IO请求给<code>FileSystem</code>。</p>
+</li>
+<li><p><code>FileSystem</code>处理IO请求后，将数据返回给<code>FileReader</code>。</p>
+</li>
+<li><p><code>FileReader</code>将IO状态返回给<code>BlockFetcher</code>。</p>
+</li>
+<li><p><code>BlockFetcher</code>处理尾部校验，确保数据的完整性。</p>
+</li>
+<li><p>如果数据是压缩的，<code>BlockFetcher</code>调用<code>Compression</code>组件进行解压处理。</p>
+</li>
+<li><p><code>BlockFetcher</code>将解压后的数据插入到<code>PersistentCache</code>中，以便后续读取可以命中缓存。</p>
+</li>
+<li><p>流程进入结束步骤，返回IO状态给调用者。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>返回IO状态</strong></p>
+<ul>
+<li>无论通过哪种方式获取数据，<code>BlockFetcher</code>最终都会将IO状态返回给<code>Caller</code>，表示读取操作的结果。</li>
+</ul>
+</li>
+</ol>
+<pre class="mermaid">graph TD
+    Start[ReadBlockContents调用] --> CheckPersistentCache{持久缓存检查}
+    CheckPersistentCache -- 命中 --> ReturnOK[返回成功]
+    
+    CheckPersistentCache -- 未命中 --> CheckPrefetch{预取缓冲检查}
+    CheckPrefetch -- 命中 --> VerifyChecksum[校验数据]
+    VerifyChecksum -- 失败 --> RetryRead[重试读取]
+    
+    CheckPrefetch -- 未命中 --> ReadFromFile[文件读取]
+    ReadFromFile --> PrepareBuffer[准备缓冲区]
+    PrepareBuffer --> SelectBuffer{选择缓冲策略}
+    SelectBuffer -- 小数据 --> UseStackBuf[栈缓冲]
+    SelectBuffer -- 压缩数据 --> UseCompressedBuf[压缩缓冲]
+    SelectBuffer -- 普通数据 --> UseHeapBuf[堆缓冲]
+    
+    ReadFromFile --> PerformIO[执行IO操作]
+    PerformIO -- 直接IO --> DirectIORead[对齐读取]
+    PerformIO -- 普通IO --> NormalRead[常规读取]
+    
+    PerformIO --> CheckIntegrity[完整性检查]
+    CheckIntegrity -- 损坏 --> RetryRead
+    CheckIntegrity -- 正常 --> ProcessTrailer[处理尾部]
+    
+    ProcessTrailer --> Decompress{需要解压?}
+    Decompress -- 是 --> Uncompress[解压数据]
+    Decompress -- 否 --> StoreResult[存储结果]
+    
+    Uncompress --> UpdateCache[更新缓存]
+    StoreResult --> UpdateCache
+    UpdateCache --> ReturnOK</pre>
+
+<p>流程再次重申：</p>
+<ul>
+<li><p><strong>缓存优先策略</strong>：流程首先尝试从持久化缓存和预取缓冲区中获取数据，只有在两者都未命中时才进行文件读取，这种策略可以显著提高读取性能，减少IO操作的开销。</p>
+</li>
+<li><p><strong>数据完整性校验</strong>：在从不同来源获取数据后，都会进行尾部校验，确保数据的完整性和正确性。</p>
+</li>
+<li><p><strong>异步IO处理</strong>：异步IO操作，提高系统的并发处理能力。</p>
+</li>
+<li><p><strong>缓存更新</strong>：在从文件读取数据并解压后，会将数据插入到持久化缓存中，这样后续的读取请求可以直接命中缓存，避免重复的文件读取和解压操作。</p>
+</li>
+</ul>
+<pre class="mermaid">
+graph LR
+    A[读取请求] --> B{缓冲策略选择}
+    B -->|小数据| C[栈缓冲 stack_buf_]
+    B -->|压缩数据| D[压缩池 compressed_buf_]
+    B -->|普通数据| E[堆缓冲 heap_buf_]
+    B -->|直接IO| F[对齐缓冲 direct_io_buf_]
+    C & D & E & F --> G[BlockContents]
+    G --> H[用户返回后释放]</pre>
+
+<p>这里再放一张BlockFetcher中的设计巧思，针对不同的数据大小，区分了不同的缓存池，能够针对不同的IO特点进行特定优化。</p>
+<h2 id="简单的bench"><a href="#简单的bench" class="headerlink" title="简单的bench"></a>简单的bench</h2><p>生成命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">rocks_db_bench —db=prefix_scan —env_uri=ws://ws.flash.ftw3preprod1 -logtostderr=<span class="literal">false</span> </span><br><span class="line">-benchmarks=<span class="string">&quot;fillseqdeterministic&quot;</span> -key_size=32 -value_size=512 -num=5000000 -num_levels=4 </span><br><span class="line">-multiread_batched=<span class="literal">true</span> -use_direct_reads=<span class="literal">false</span> -adaptive_readahead=<span class="literal">true</span> -threads=1 </span><br><span class="line">-cache_size=10485760000 -async_io=<span class="literal">false</span> -multiread_stride=40000 -disable_auto_compactions=<span class="literal">true</span> </span><br><span class="line">-compaction_style=1 -bloom_bits=10</span><br></pre></td></tr></table></figure>
+
+<p>数据库结构</p>
+<p><strong>Level 0</strong>: 包含 4 个 SST 文件，大小分别为 24828520、49874113、100243447、201507232 字节</p>
+<p><strong>Level 1</strong>: 包含 6 个 SST 文件，总大小为 405046844 字节</p>
+<p><strong>Level 2</strong>: 包含 13 个 SST 文件，总大小为 814190051 字节</p>
+<p><strong>Level 3</strong>: 包含 23 个 SST 文件，总大小为 1515327216 字节</p>
+<p>Scan :</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">rocks_db_bench -use_existing_db=<span class="literal">true</span> —db=prefix_scan -benchmarks=<span class="string">&quot;seekrandom&quot;</span> -key_size=32 </span><br><span class="line">-value_size=512 -num=5000000 -batch_size=8 -multiread_batched=<span class="literal">true</span> -use_direct_reads=<span class="literal">false</span> </span><br><span class="line">-duration=60 -ops_between_duration_checks=1 -<span class="built_in">readonly</span>=<span class="literal">true</span> -threads=4 -cache_size=300000000 </span><br><span class="line">-async_io=<span class="literal">true</span> -multiread_stride=40000 -statistics —env_uri=ws://ws.flash.ftw3preprod1 </span><br><span class="line">-logtostderr=<span class="literal">false</span> -adaptive_readahead=<span class="literal">true</span> -bloom_bits=10 -seek_nexts=65536</span><br></pre></td></tr></table></figure>
+
+<p>测试结果:</p>
+<ol>
+<li>启用异步扫描</li>
+</ol>
+<ul>
+<li>Latency (micros&#x2F;op) 414442.3</li>
+<li>Throughput (MB&#x2F;s) 326.2</li>
+<li>IOPS (ops&#x2F;sec) 9</li>
+<li>Operations 581</li>
+<li>Found Keys 145&#x2F;145</li>
+</ul>
+<ol start="2">
+<li>禁用异步扫描</li>
+</ol>
+<ul>
+<li>Latency (micros&#x2F;op) 848858.67</li>
+<li>Throughput (MB&#x2F;s) 158.1</li>
+<li>IOPS (ops&#x2F;sec) 4</li>
+<li>Operations 284</li>
+<li>Found Keys 74&#x2F;74</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li><p>RocksDB针对原本LevelDB再SSTable读取过程中遇到的多次IO进行细节化的Prefetch，在Open和Get不同阶段进行针对性的Prefetch动作；</p>
+</li>
+<li><p>在Open阶段中，Prefetch了所需的Footer内容，一次IO，后续对MetaIndexBlock、FilterBlock的读取都是放在内存中进行，提高效率；在Get阶段中，在具体的SeekImpl实现中，使用异步Block读取，来优化首次读取的性能，减少了用户等待的时间。</p>
+</li>
+<li><p>针对Prefetch和异步的需求，分开设计了FilePrefetchBuffer和BlockFetcher两个核心类，FilePrefetchBuffer优化SSTable中的Prefetch读取，并结合BlockCache将读入的Block存入内存中，BlockFetcher类独立了Block的异步化读取操作，结合持久化缓存、BlockCache、Prefetch、文件系统级别的Prefetch，解压为一体，向上层提供了简洁的Block读取操作，屏蔽了错综复杂的IO逻辑；</p>
+</li>
+</ol>
+</div><div class="article-licensing box"><div class="licensing-title"><p>RocksDB-源码分析（1）BlockTable 读源码分析</p><p><a href="https://devillove084.github.io/2025/03/07/RocksDB-1/">https://devillove084.github.io/2025/03/07/RocksDB-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-03-07</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-03-17</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/rocksdb/">rocksdb</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/02/16/DuckDB-2/"><span class="level-item">DuckDB-源码分析（2）Parquet读设计</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
             el: '#valine-thread',
             appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
             appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
