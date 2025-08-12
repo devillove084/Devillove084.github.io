@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>Sigmod 论文《Rethinking The Compaction Policies in LSM-trees》阅读 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="文章来自清华大学交叉信息学院，论文聚焦于 LSM 树的Compact策略优化，提出了一种名为 EcoTune 的动态规划算法，旨在通过重新思考Compact操作的定位，最大化系统的平均查询吞吐量。LSM 树的核心挑战在于通过将内存中的数据批量Flush到磁盘形成 “sorted string tables”，并定期Compact重叠的待合并SSTable以减少读放大（RA）。 传统Compact策"><meta property="og:type" content="blog"><meta property="og:title" content="Sigmod 论文《Rethinking The Compaction Policies in LSM-trees》阅读"><meta property="og:url" content="https://devillove084.github.io/2025/08/12/Paper-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="文章来自清华大学交叉信息学院，论文聚焦于 LSM 树的Compact策略优化，提出了一种名为 EcoTune 的动态规划算法，旨在通过重新思考Compact操作的定位，最大化系统的平均查询吞吐量。LSM 树的核心挑战在于通过将内存中的数据批量Flush到磁盘形成 “sorted string tables”，并定期Compact重叠的待合并SSTable以减少读放大（RA）。 传统Compact策"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-08-12T03:36:24.000Z"><meta property="article:modified_time" content="2025-08-12T05:30:11.674Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="paper"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/08/12/Paper-1/"},"headline":"Sigmod 论文《Rethinking The Compaction Policies in LSM-trees》阅读","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-08-12T03:36:24.000Z","dateModified":"2025-08-12T05:30:11.674Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"文章来自清华大学交叉信息学院，论文聚焦于 LSM 树的Compact策略优化，提出了一种名为 EcoTune 的动态规划算法，旨在通过重新思考Compact操作的定位，最大化系统的平均查询吞吐量。LSM 树的核心挑战在于通过将内存中的数据批量Flush到磁盘形成 “sorted string tables”，并定期Compact重叠的待合并SSTable以减少读放大（RA）。 传统Compact策"}</script><link rel="canonical" href="https://devillove084.github.io/2025/08/12/Paper-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-08-12T03:36:24.000Z" title="8/12/2025, 3:36:24 AM">2025-08-12</time>发表</span><span class="level-item"><time dateTime="2025-08-12T05:30:11.674Z" title="8/12/2025, 5:30:11 AM">2025-08-12</time>更新</span><span class="level-item">16 分钟读完 (大约2378个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">Sigmod 论文《Rethinking The Compaction Policies in LSM-trees》阅读</h1><div class="content"><p>文章来自清华大学交叉信息学院，论文聚焦于 LSM 树的Compact策略优化，提出了一种名为 EcoTune 的动态规划算法，旨在通过重新思考<strong>Compact操作的定位</strong>，最大化系统的平均查询吞吐量。LSM 树的核心挑战在于通过将内存中的数据批量Flush到磁盘形成 “sorted string tables”，并定期Compact重叠的待合并SSTable以减少读放大（RA）。</p>
+<p>传统Compact策略主要关注写放大（WA）与读放大的权衡，但忽略了现代存储设备的特性。现代 NVMe SSD 具备极高的写入带宽，写入性能不再是瓶颈。Compact与查询会竞争 CPU 和 I&#x2F;O 资源，因此Compact策略的核心<strong>应是优化平均查询吞吐量，而非单纯降低瞬时读放大</strong>。</p>
+<p>论文链接 <a target="_blank" rel="noopener" href="https://people.iiis.tsinghua.edu.cn/~huanchen/publications/ecotune-sigmod25.pdf">Rethinking The Compaction Policies in LSM-trees</a>。</p>
+<span id="more"></span>
+
+<h3 id="研究思路"><a href="#研究思路" class="headerlink" title="研究思路"></a>研究思路</h3><p>将Compact视为对计算和 I&#x2F;O 资源的投资，其收益是未来查询性能的提升（减少需要探测的归并待合并SSTable数量），成本是Compact过程中占用的资源，优化目标是最大化Compact的 “累积收益”。</p>
+<h4 id="对写入性能的影响"><a href="#对写入性能的影响" class="headerlink" title="对写入性能的影响"></a>对写入性能的影响</h4><p>传统观点认为，更高的写放大（WA）会降低写入性能，这一结论源于早期HDD的限制：HDD 上的Flush和Compact操作无法并行，Compact会阻塞Flush，可能导致写入停滞和数据丢失，因此需尽可能降低Compact带来的写放大。但现代 NVMe SSD 的高写入带宽改变了这一局面：</p>
+<ul>
+<li>Flush和Compact可并行处理，且实际工作负载的写入速度通常较低；</li>
+<li>只需为Flush预留足够带宽和 CPU 资源，剩余资源可自由分配给Compact和查询，Compact策略不会影响写入性能。</li>
+<li>在不同 SSD 和 CPU 核心数下，不同Compact策略的平均写入延迟和尾延迟（P99）几乎无差异，作者认为Compact策略不影响写入性能。</li>
+</ul>
+<blockquote>
+<p>作者认为Compact策略的设计应聚焦于如何利用剩余资源最大化查询性能。</p>
+</blockquote>
+<h4 id="对查询性能的影响"><a href="#对查询性能的影响" class="headerlink" title="对查询性能的影响"></a>对查询性能的影响</h4><p>Compact策略的核心目标应是利用剩余资源提升平均查询性能，而非仅优化瞬时读放大（RA）。作者给出平均查询性能的定义：以 “Compact周期”（两次全局Compact的间隔）内的平均查询吞吐量为衡量标准。全局Compact会将所有待合并SSTable合并为一个，确保不同周期的策略互不影响，但是Compact对查询的双刃剑：</p>
+<ul>
+<li>积极Compact可减少待合并SSTable数量，提升瞬时查询速度；但Compact会占用 CPU 和 I&#x2F;O 资源，导致查询暂时变慢，甚至阻塞。</li>
+<li>保守Compact可能增加单次查询的 I&#x2F;O 成本，但能为查询保留更多资源，反而可能提升整个周期的平均吞吐量。</li>
+</ul>
+<blockquote>
+<p>作者认为Compact是对资源的 “投资”，成本是Compact的写放大和资源占用，收益是<strong>未来查询性能的提升</strong>。优化目标是最大化Compact的性能提升与持续时间的乘积。</p>
+</blockquote>
+<h3 id="EcoTune-算法"><a href="#EcoTune-算法" class="headerlink" title="EcoTune 算法"></a>EcoTune 算法</h3><p>出发点: 作者通过实验分析不同查询类型（Get、Seek、短扫描、长扫描）对Compact策略的敏感度：：<br>合并小SSTable对 Get、Seek 和短扫描的 I&#x2F;O 性能提升有限（RangeFilter已减少不必要 I&#x2F;O），但过多小SSTable会增加 CPU 开销（需更多Filter来下探SSTable内容）。<br>合并大SSTable显著提升长范围扫描的吞吐量（因长扫描的目标键多位于大SSTable中，Compact可降低读放大）。</p>
+<blockquote>
+<p>作者认为Compact策略的核心应是优化大SSTable的合并，以提升长范围扫描性能，同时避免小SSTable过多导致的 CPU 开销。</p>
+</blockquote>
+<h4 id="核心设计"><a href="#核心设计" class="headerlink" title="核心设计"></a>核心设计</h4><p>Compact过程拆分为三个逻辑层级，根据对查询性能的影响制定不同策略：</p>
+<ul>
+<li>顶层（Top Level）：作为 SSD 上的写缓冲区，存储新刷入的小SSTable，不进行Compact（作者认为对查询 I&#x2F;O 影响小）。<strong>通过全局索引记录键与运行 ID 的映射，平衡 CPU 开销与内存占用</strong>。其容量设为(S &#x3D; M&#x2F;K)（M为 LSM 树总大小，K为长扫描的平均键数量），确保长扫描的 I&#x2F;O 效率。</li>
+<li>主层（Main Level）：存储中等大小的SSTable，其Compact策略直接影响长扫描性能。通过动态规划算法优化Compact时机和粒度，每个运行配备范围过滤器加速查询。</li>
+<li>最后层（Last Level）：仅保留一个SSTable，限制空间放大。当主层达到容量上限（由主层与最后层的大小比c控制）时，触发全局Compact，合并所有运行至最后层。</li>
+</ul>
+<p>其中，Flush和顶层到主层的Compact使用固定线程，主层内部的Compact与查询共享剩余线程，空闲时主层线程可处理查询，提升资源利用率。通过动态规划确定主层的最优Compact策略，动态规划的核心是权衡Compact的 “成本”（资源占用时间）和 “收益”（查询性能提升的持续时间）。</p>
+<p>动态规划算法：<br>问题定义：现有$e$个sstable，待处理$c$个新sstable，需确定最优Compact策略以最大化查询吞吐量累积。</p>
+<p>状态定义：<br>$f(e,c)$ 表示吞吐量累计的最大值。</p>
+<p>递推关系：<br>$$<br>f(e,c)&#x3D;max_x[f(e,c) + (T_w - x \cdot T_c) \cdot q(e + 1) + f(e + 1, c - x)]<br>$$<br>其中：</p>
+<ul>
+<li>$x$: 首次合并的单位SSTable数量；</li>
+<li>$T_w$：生成 1 个单位SSTable的时间；</li>
+<li>$T_c$：合并 1 个单位SSTable的时间；</li>
+<li>$q(e)$：当前有e个SSTable时的查询速度；</li>
+</ul>
+<p>时间复杂度：(O(R^3))（R为Compact周期内的单位SSTable总数）</p>
+<h3 id="个人分析"><a href="#个人分析" class="headerlink" title="个人分析"></a>个人分析</h3><h4 id="适合的场景"><a href="#适合的场景" class="headerlink" title="适合的场景"></a>适合的场景</h4><p><strong>长范围扫描占比高的工作负载</strong><br>EcoTune 的核心优化目标之一是提升长范围扫描的性能，其三级模型通过合并主层的大SSTable显著降低长扫描的 I&#x2F;O 放大。</p>
+<p><strong>高带宽 SSD 环境</strong><br>该方法的设计前提是现代 SSD 具备远超实际工作负载的写入带宽可支持Compact与查询并行执行。在这类硬件上，EcoTune 能更灵活地分配剩余资源（CPU 和 I&#x2F;O），平衡Compact与查询的资源竞争。</p>
+<p><strong>中等写入速度的稳定工作负载</strong><br>当写入速度远低于 SSD 带宽，EcoTune 保证写入不阻塞的前提下，通过动态规划优化Compact时机，最大化平均查询吞吐量。</p>
+<p><strong>对平均吞吐量和延迟稳定性要求高的场景</strong><br>EcoTune 通过平衡Compact与查询的资源占用，减少了因Compact导致的查询排队延迟，尤其在高并发或查询请求突发的场景中，其延迟稳定性优于 Leveling 和 Lazy Leveling。作者在 30K&#x2F;s 的查询到达速度下，EcoTune 的尾延迟比传统策略低 3-4 个数量级。</p>
+<h4 id="不适合的场景"><a href="#不适合的场景" class="headerlink" title="不适合的场景"></a>不适合的场景</h4><p><strong>写入速度接近或饱和 SSD 带宽的极端场景</strong><br>当写入速度接近 SSD 带宽上限，Flush与Compact的并行性被打破，该方法的优化逻辑可能失效。此时使用传统策略（比如 Lazy Leveling）可能更稳定。</p>
+<p><strong>以点查询或短扫描为主的工作负载</strong><br>EcoTune 的优化重心是主层大SSTable的合并，以提升长范围扫描性能，但对以点查询、短扫描为主的场景提升有限。实验显示，合并小SSTable对这类查询的 I&#x2F;O 性能影响极小，反而可能因动态规划的资源分配逻辑增加额外开销。</p>
+<p><strong>硬件资源极度受限的环境</strong><br>若硬件资源限制（比如 CPU 核心少、SSD 带宽低）无法支持Compact与查询并行，EcoTune 的动态规划算法难以平衡资源分配。在作者的实验中仅 4-6 个 CPU 核心的场景中，CPU 竞争和上下文切换开销会削弱其优化效果，导致性能接近甚至低于传统策略。</p>
+<p><strong>对瞬时性能而非平均性能要求高的场景</strong><br>EcoTune 通过牺牲部分瞬时性能（如允许短期内更多SSTable存在）来优化Compact周期内的平均吞吐量。若应用场景对 “瞬时最高延迟” 或 “某一时刻的峰值性能” 要求严格（如高频交易、实时查询），其策略可能不符合需求。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Sigmod 论文《Rethinking The Compaction Policies in LSM-trees》阅读</p><p><a href="https://devillove084.github.io/2025/08/12/Paper-1/">https://devillove084.github.io/2025/08/12/Paper-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-08-12</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-08-12</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/paper/">paper</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/03/07/RocksDB-1/"><span class="level-item">RocksDB-源码分析（1）BlockTable 读源码分析</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2025 devillove084</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script data-pjax src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script data-pjax src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><script src="https://cdn.jsdelivr.net/npm/mermaid@11.5.0/dist/mermaid.min.js"></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
