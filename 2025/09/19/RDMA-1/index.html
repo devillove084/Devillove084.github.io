@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>RDMA-Toy-0 环境简单搭建 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="RXE 是 Linux 上的“软件 RoCE v2 驱动”（内核模块 rdma_rxe），让普通以太网接口具备 RDMA 能力（走内核网络栈）。RoCE v2 将 RDMA 负载封装在 UDP&amp;#x2F;IPv4 或 UDP&amp;#x2F;IPv6 中，默认目的端口 4791。设备&amp;#x2F;驱动通常把到 4791 的流量识别为 RoCE。本文旨在用同一台主机、不依赖硬件 RNIC，搭出一套可复现且稳"><meta property="og:type" content="blog"><meta property="og:title" content="RDMA-Toy-0 环境简单搭建"><meta property="og:url" content="https://devillove084.github.io/2025/09/19/RDMA-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="RXE 是 Linux 上的“软件 RoCE v2 驱动”（内核模块 rdma_rxe），让普通以太网接口具备 RDMA 能力（走内核网络栈）。RoCE v2 将 RDMA 负载封装在 UDP&amp;#x2F;IPv4 或 UDP&amp;#x2F;IPv6 中，默认目的端口 4791。设备&amp;#x2F;驱动通常把到 4791 的流量识别为 RoCE。本文旨在用同一台主机、不依赖硬件 RNIC，搭出一套可复现且稳"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2025-09-19T15:00:26.000Z"><meta property="article:modified_time" content="2025-09-20T03:50:49.541Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="rdma"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2025/09/19/RDMA-1/"},"headline":"RDMA-Toy-0 环境简单搭建","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2025-09-19T15:00:26.000Z","dateModified":"2025-09-20T03:50:49.541Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"RXE 是 Linux 上的“软件 RoCE v2 驱动”（内核模块 rdma_rxe），让普通以太网接口具备 RDMA 能力（走内核网络栈）。RoCE v2 将 RDMA 负载封装在 UDP&#x2F;IPv4 或 UDP&#x2F;IPv6 中，默认目的端口 4791。设备&#x2F;驱动通常把到 4791 的流量识别为 RoCE。本文旨在用同一台主机、不依赖硬件 RNIC，搭出一套可复现且稳"}</script><link rel="canonical" href="https://devillove084.github.io/2025/09/19/RDMA-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2025-09-19T15:00:26.000Z" title="9/19/2025, 3:00:26 PM">2025-09-19</time>发表</span><span class="level-item"><time dateTime="2025-09-20T03:50:49.541Z" title="9/20/2025, 3:50:49 AM">2025-09-20</time>更新</span><span class="level-item">16 分钟读完 (大约2327个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">RDMA-Toy-0 环境简单搭建</h1><div class="content"><p>RXE 是 Linux 上的“软件 RoCE v2 驱动”（内核模块 rdma_rxe），让普通以太网接口具备 RDMA 能力（走内核网络栈）。RoCE v2 将 RDMA 负载封装在 UDP&#x2F;IPv4 或 UDP&#x2F;IPv6 中，默认目的端口 4791。设备&#x2F;驱动通常把到 4791 的流量识别为 RoCE。本文旨在用同一台主机、不依赖硬件 RNIC，搭出一套可复现且稳定的 RDMA 实验环境：rping、perftest均可跑通。</p>
+<span id="more"></span>
+
+<h2 id="实验环境介绍"><a href="#实验环境介绍" class="headerlink" title="实验环境介绍"></a>实验环境介绍</h2><p>系统：Debian testing（个人喜用testing分支，任一较新内核的 Debian&#x2F;Ubuntu 均可），软件包（发行版自带，避免混装第三方 OFED）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt update</span><br><span class="line"><span class="built_in">sudo</span> apt install -y rdma-core ibverbs-providers rdmacm-utils perftest ethtool nftables</span><br></pre></td></tr></table></figure>
+
+<h2 id="实验环境搭建"><a href="#实验环境搭建" class="headerlink" title="实验环境搭建"></a>实验环境搭建</h2><blockquote>
+<p>思路：在宿主机创建一对二层直连的虚拟网卡 vA&#x2F;vB，分别配置 IPv4，再把它们各自绑定为 rxe0&#x2F;rxe1。这样路径最短、变量最少，最利于复现与排障。</p>
+</blockquote>
+<ol>
+<li>清理残留（可以反复执行）</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 停掉可能残留的测试进程</span></span><br><span class="line"><span class="built_in">sudo</span> pkill -f <span class="string">&#x27;rping|ibv_|ib_write_bw|ib_read_bw|ib_send_bw&#x27;</span> 2&gt;/dev/null || <span class="literal">true</span></span><br><span class="line"><span class="comment"># 删除历史 veth/macvlan/ipvlan</span></span><br><span class="line"><span class="keyword">for</span> nic <span class="keyword">in</span> vA vB mvl0 mvl1 ivl0 ivl1; <span class="keyword">do</span> <span class="built_in">sudo</span> ip <span class="built_in">link</span> del <span class="string">&quot;<span class="variable">$nic</span>&quot;</span> 2&gt;/dev/null || <span class="literal">true</span>; <span class="keyword">done</span></span><br><span class="line"><span class="comment"># 删除历史 rxe/siw 设备并卸载模块</span></span><br><span class="line"><span class="keyword">for</span> dev <span class="keyword">in</span> $(<span class="built_in">sudo</span> rdma <span class="built_in">link</span> show 2&gt;/dev/null | awk <span class="string">&#x27;/link (rxe|siw)/&#123;print $2&#125;&#x27;</span>); <span class="keyword">do</span> <span class="built_in">sudo</span> rdma <span class="built_in">link</span> delete <span class="string">&quot;<span class="variable">$dev</span>&quot;</span>; <span class="keyword">done</span></span><br><span class="line"><span class="built_in">sudo</span> modprobe -r rdma_rxe 2&gt;/dev/null || <span class="literal">true</span></span><br><span class="line"><span class="comment"># 清空本机 nftables（避免拦截 UDP/4791）</span></span><br><span class="line"><span class="built_in">sudo</span> nft flush ruleset 2&gt;/dev/null || <span class="literal">true</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>创建veth对</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> ip <span class="built_in">link</span> add vA <span class="built_in">type</span> veth peer name vB</span><br><span class="line"><span class="built_in">sudo</span> ip addr add 10.10.0.1/24 dev vA</span><br><span class="line"><span class="built_in">sudo</span> ip addr add 10.10.0.2/24 dev vB</span><br><span class="line"><span class="built_in">sudo</span> ip <span class="built_in">link</span> <span class="built_in">set</span> vA up</span><br><span class="line"><span class="built_in">sudo</span> ip <span class="built_in">link</span> <span class="built_in">set</span> vB up</span><br><span class="line"></span><br><span class="line"><span class="comment"># 关闭聚合，减少后续 RXE 的不确定性</span></span><br><span class="line"><span class="built_in">sudo</span> ethtool -K vA gro off gso off tso off 2&gt;/dev/null || <span class="literal">true</span></span><br><span class="line"><span class="built_in">sudo</span> ethtool -K vB gro off gso off tso off 2&gt;/dev/null || <span class="literal">true</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 放宽反向路由校验（仅对这两个接口）</span></span><br><span class="line"><span class="built_in">sudo</span> sysctl -w net.ipv4.conf.vA.rp_filter=0</span><br><span class="line"><span class="built_in">sudo</span> sysctl -w net.ipv4.conf.vB.rp_filter=0</span><br><span class="line"></span><br><span class="line"><span class="comment"># 基本连通性（预期均为成功）</span></span><br><span class="line">ping -c1 -I vA 10.10.0.2</span><br><span class="line">ping -c1 -I vB 10.10.0.1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>▸ 为什么先验证 ping？<br>这一步确保二层（ARP）与三层（ICMP）基本无拦截；若此时 rping 能通而 ping 不通，通常是规则屏蔽了 ICMP 而并未影响 UDP&#x2F;4791，详见<a target="_blank" rel="noopener" href="https://docs.nvidia.com/networking/display/MLNXOFEDv23070512/RDMA%2Bover%2BConverged%2BEthernet%2B%28RoCE%29?utm_source=chatgpt.com">NVIDIA DOC</a>。</p>
+<p>▸ 为什么要关闭聚合，以及为什么？<br>在 veth&#x2F;macvlan&#x2F;ipvlan 这类纯软件路径上做 Soft-RoCE 实验时，建议 ethtool -K <if> gro off gso off tso off。<br>这么做的目的有两个：</p>
+<ul>
+<li>保证一条 UDP 报文 ≈ 一个内核 skb，不被合并&#x2F;延后处理；</li>
+<li>避免“虚拟网卡 + 分段&#x2F;聚合”带来的时序抖动与特殊 skb 形态，从而使 rxe 的收发、流控与超时行为更可预测，可复现。</li>
+</ul>
+<blockquote>
+<p>WHY:</p>
+<ul>
+<li>TSO（TCP Segmentation Offload）&#x2F;GSO（Generic Segmentation Offload）<br>发送端把一段很大的逻辑报文（大于 MTU）打成一个大 skb下发，交由后续层（通常是网卡或协议子层）再分片成多个 MTU 大小的帧。GSO 是可作用于 UDP 等非 TCP 场景；TSO 是网卡分段的特定形式。</li>
+<li>GRO（Generic Receive Offload）&#x2F; LRO<br>接收端把多个属于同一流的连续小包在内核合并为一个更大的 skb，以减少上层处理次数。GRO 是内核通用聚合，LRO 是网卡侧的聚合。在物理网卡场景中，这些特性通常有利于吞吐；但在纯软件路径（veth 等）上，它们会引入额外的合并&#x2F;分段时机与非 MTU 粒度的 skb 形态。</li>
+</ul>
+<p>RoCEv2 把 RDMA 负载封进 UDP；rxe 在内核处理 UDP&#x2F;4791 的收发，将每个RoCE BTH 单元映射为数据平面的动作（QP&#x2F;PSN、RNR&#x2F;ACK&#x2F;NAK、CQE 产生等）。期望是报文到达的时间序列尽量贴近发送端真实节奏。</p>
+<p>多个连续 UDP 报文可能被 GRO 合成一个带分段信息的 skb（如 skb 的 fraglist 或 GRO segment list），最后在一次 NAPI 轮询里一次性交给上层。</p>
+<p>对 rxe 来说，改变了包到达的时间分布（排队论）：本来应该“均匀到达”的 WQE 相关报文，会成批出现。副作用是对接收侧 CQE 瞬时压力增大，容易触发RNR（Receiver Not Ready），导致发送侧重试；发送侧若启用 GSO&#x2F;TSO，可能把多 MTU 的数据打成一个大 skb交给 veth；veth 的对端再在某个时刻统一分段。导致不是每次立刻按 MTU 发送，而是攒批分段。副作用是对端看到的包间隔不均匀，ACK&#x2F;NAK 的时序也随之改变；对 RDMA RC（可靠连接）这种对超时、窗口非常敏感的传输来说，会放大实验不可重复性。</p>
+</blockquote>
+<ol>
+<li>启用Soft-RoCE</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> modprobe rdma_rxe</span><br><span class="line"><span class="built_in">sudo</span> rdma <span class="built_in">link</span> add rxe0 <span class="built_in">type</span> rxe netdev vA</span><br><span class="line"><span class="built_in">sudo</span> rdma <span class="built_in">link</span> add rxe1 <span class="built_in">type</span> rxe netdev vB</span><br><span class="line"></span><br><span class="line"><span class="comment"># 预期：state ACTIVE / LINK_UP</span></span><br><span class="line"><span class="built_in">sudo</span> rdma <span class="built_in">link</span> show</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看 GID（用于后续 perftest 选择）</span></span><br><span class="line">ibv_devinfo -d rxe0 -v | grep -i <span class="string">&#x27;GID\[\s*1\]&#x27;</span></span><br><span class="line">ibv_devinfo -d rxe1 -v | grep -i <span class="string">&#x27;GID\[\s*1\]&#x27;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这里看到的 GID 是什么？</p>
+<ul>
+<li>GID[0] 为 IPv6 链路本地（fe80::…）；</li>
+<li>GID[1] 为 IPv4-mapped IPv6（形如 ::ffff:10.10.0.x）。RoCE&#x2F;Soft-RoCE 在小规模实验中经常选 GID[1] 来与 IPv4 地址对应。</li>
+</ul>
+<h2 id="链路验证"><a href="#链路验证" class="headerlink" title="链路验证"></a>链路验证</h2><ol>
+<li>RDMA_CM（rping）:</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 服务端: 10.10.0.1</span></span><br><span class="line"><span class="built_in">sudo</span> rping -s -a 10.10.0.1 -p 18515 -v -d</span><br><span class="line"><span class="comment"># 客户端: 10.10.0.2 一侧，指向 .1</span></span><br><span class="line"><span class="built_in">sudo</span> rping -c -a 10.10.0.1 -p 18515 -v -d</span><br></pre></td></tr></table></figure>
+
+<p>服务端输出:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">server posted rdma <span class="built_in">read</span> req</span><br><span class="line">rdma <span class="built_in">read</span> completion</span><br><span class="line">server received <span class="built_in">read</span> complete</span><br><span class="line">server ping data: rdma-ping-5868: KLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxy</span><br><span class="line">server posted go ahead</span><br><span class="line">send completion</span><br><span class="line">recv completion</span><br><span class="line">Received rkey 101f addr 5645934421e0 len 64 from peer</span><br></pre></td></tr></table></figure>
+
+<p>客户端输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">send completion</span><br><span class="line">recv completion</span><br><span class="line">ping data: rdma-ping-5868: KLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxy</span><br><span class="line">RDMA addr 56459344f390 rkey 11f5 len 64</span><br></pre></td></tr></table></figure>
+
+<p>▸ 为什么推荐先跑 rping？<br>rping 使用 RDMA-CM（RoCE v2 下走 UDP&#x2F;4791），若能互通，说明 GID&#x2F;寻址&#x2F;控制面均已就绪。</p>
+<ol start="2">
+<li>perftest 验证</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 服务端（rxe0@vA）</span></span><br><span class="line"><span class="built_in">sudo</span> ib_write_bw -d rxe0 -x 1 -R -F -m 1024 -s 1024 -p 19999</span><br><span class="line"><span class="comment"># 客户端（rxe1@vB，指向 10.10.0.1）</span></span><br><span class="line"><span class="built_in">sudo</span> ib_write_bw -d rxe1 -x 1 -R -F -m 1024 -s 1024 -p 19999 10.10.0.1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>▸ perftest 是什么？<br>perftest 是基于 verbs 的带宽&#x2F;时延微基准工具集，常用于功能与性能验证。</p>
+<p>服务端输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">************************************</span><br><span class="line">* Waiting <span class="keyword">for</span> client to connect... *</span><br><span class="line">************************************</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line">                    RDMA_Write BW Test</span><br><span class="line"> Dual-port       : OFF          Device         : rxe0</span><br><span class="line"> Number of qps   : 1            Transport <span class="built_in">type</span> : IB</span><br><span class="line"> Connection <span class="built_in">type</span> : RC           Using SRQ      : OFF</span><br><span class="line"> PCIe relax order: ON           Lock-free      : OFF</span><br><span class="line"> ibv_wr* API     : OFF          Using DDP      : OFF</span><br><span class="line"> CQ Moderation   : 100</span><br><span class="line"> Mtu             : 1024[B]</span><br><span class="line"> Link <span class="built_in">type</span>       : Ethernet</span><br><span class="line"> GID index       : 1</span><br><span class="line"> Max inline data : 0[B]</span><br><span class="line"> rdma_cm QPs     : ON</span><br><span class="line"> Data ex. method : rdma_cm</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line"> Waiting <span class="keyword">for</span> client rdma_cm QP to connect</span><br><span class="line"> Please run the same <span class="built_in">command</span> with the IB/RoCE interface IP</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line"> <span class="built_in">local</span> address: LID 0000 QPN 0x0020 PSN 0xeb02b8</span><br><span class="line"> GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:00:01</span><br><span class="line"> remote address: LID 0000 QPN 0x001f PSN 0xe6da3e</span><br><span class="line"> GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:00:01</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line"> <span class="comment">#bytes     #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]</span></span><br><span class="line"> 1024       5000             416.70             409.83               0.419671</span><br><span class="line">---------------------------------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+
+<p>客户端输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line">                    RDMA_Write BW Test</span><br><span class="line"> Dual-port       : OFF          Device         : rxe1</span><br><span class="line"> Number of qps   : 1            Transport <span class="built_in">type</span> : IB</span><br><span class="line"> Connection <span class="built_in">type</span> : RC           Using SRQ      : OFF</span><br><span class="line"> PCIe relax order: ON           Lock-free      : OFF</span><br><span class="line"> ibv_wr* API     : OFF          Using DDP      : OFF</span><br><span class="line"> TX depth        : 128</span><br><span class="line"> CQ Moderation   : 100</span><br><span class="line"> Mtu             : 1024[B]</span><br><span class="line"> Link <span class="built_in">type</span>       : Ethernet</span><br><span class="line"> GID index       : 1</span><br><span class="line"> Max inline data : 0[B]</span><br><span class="line"> rdma_cm QPs     : ON</span><br><span class="line"> Data ex. method : rdma_cm</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line"> <span class="built_in">local</span> address: LID 0000 QPN 0x001f PSN 0xe6da3e</span><br><span class="line"> GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:00:01</span><br><span class="line"> remote address: LID 0000 QPN 0x0020 PSN 0xeb02b8</span><br><span class="line"> GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:00:01</span><br><span class="line">---------------------------------------------------------------------------------------</span><br><span class="line"> <span class="comment">#bytes     #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]</span></span><br><span class="line"> 1024       5000             416.70             409.83               0.419671</span><br><span class="line">---------------------------------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+
+<p>参数方面：<br>-d rxe0: 使用名为 rxe0 的 RDMA 设备。rxe0 是 Soft-RoCE (RXE) 的软件模拟设备，表明这是在用软件模拟的 RDMA 环境（通常 over Ethernet）。<br>-R: 使用 RDMA CM 进行连接建立和数据交换。RDMA CM 是一个用于建立连接的抽象层，比传统的 IB 动词更灵活，尤其适用于 RoCE 和跨子网通信。<br>-F: 在服务器端启动后永远等待客户端连接。如果没有这个参数，服务器可能在一段时间无连接后自动退出。<br>-m 1024: 设置每次轮询完成队列 (CQ) 前要执行的测试迭代次数为 1024。这是一个与内部流水线优化相关的参数，会影响性能表现。<br>-s 1024: 设置每次 RDMA 写操作传输的消息大小为 1024 字节。<br>-p 19999: 指定服务器监听连接的 TCP 端口号 为 19999。客户端需要通过这个端口来连接。</p>
+<p>输出结果中，测试在两台通过以太网（Soft-RoCE，即 RXE）连接的虚拟机之间进行，使用 1024 字节的消息大小。测试结果显示，平均带宽达到 409.83 MiB&#x2F;s（约 3.2 Gbps），这表明 Soft-RoCE 在虚拟环境下的基本功能正常。</p>
+<h2 id="错误路径-意外处理"><a href="#错误路径-意外处理" class="headerlink" title="错误路径 &amp; 意外处理"></a>错误路径 &amp; 意外处理</h2><ul>
+<li>ping 不通但 rping 能通ICMP 被规则屏蔽或 ARP 未解析（而 CM 的 UDP&#x2F;4791 未被拦）：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> nft flush ruleset；</span><br><span class="line"><span class="built_in">sudo</span> sysctl -w net.ipv4.icmp_echo_ignore_all=0；</span><br><span class="line">arping -I vA 10.10.0.2 / arping -I vB 10.10.0.1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>perftest 报 **Failed to modify QP … to RTR &#x2F; Unable to Connect …**，检查两端 GID&#x2F;设备&#x2F;地址没对齐或启动顺序错误：</li>
+</ul>
+<ol>
+<li>核对 ibv_devinfo -d rxe{0,1} -v 中的 GID[1] 分别为 ::ffff:10.10.0.1&#x2F;2；</li>
+<li>先启动服务端，再启动客户端；</li>
+<li>考虑必要时将 MTU降档（如 -m 512 -s 256），稳定后再拉高。</li>
+</ol>
+</div><div class="article-licensing box"><div class="licensing-title"><p>RDMA-Toy-0 环境简单搭建</p><p><a href="https://devillove084.github.io/2025/09/19/RDMA-1/">https://devillove084.github.io/2025/09/19/RDMA-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2025-09-19</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-09-20</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/rdma/">rdma</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/08/19/Paper-2/"><span class="level-item">Sigmod 论文《Revisiting the Design of In-Memory Dynamic Graph Storages》阅读</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2025 devillove084</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script data-pjax src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script data-pjax src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><script src="https://cdn.jsdelivr.net/npm/mermaid@11.5.0/dist/mermaid.min.js"></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
