@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>PostgreSQL 社区风格开发总结 - Database builder</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Database builder"><meta name="msapplication-TileImage" content="/images/ironman.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Database builder"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="PostgreSQL 项目历经二十多年，其软件开发准则和要求以严格著称，本文的目的是为了介绍一些PG社区的开发hints。也算是初入PG社区的一些随笔，好的软件开发不仅包含代码礼仪，还应该包含优雅简洁的邮件&amp;#x2F;交流礼仪。事实上，下面列出的一些礼仪不仅是在PG社区、也是其他开源社区应该学习和了解的典型范例，更是在科技行业使用邮件、Github、在任意平台讨论技术和代码的优秀准则。"><meta property="og:type" content="blog"><meta property="og:title" content="PostgreSQL 社区风格开发总结"><meta property="og:url" content="https://devillove084.github.io/2026/01/11/PG-1/"><meta property="og:site_name" content="Database builder"><meta property="og:description" content="PostgreSQL 项目历经二十多年，其软件开发准则和要求以严格著称，本文的目的是为了介绍一些PG社区的开发hints。也算是初入PG社区的一些随笔，好的软件开发不仅包含代码礼仪，还应该包含优雅简洁的邮件&amp;#x2F;交流礼仪。事实上，下面列出的一些礼仪不仅是在PG社区、也是其他开源社区应该学习和了解的典型范例，更是在科技行业使用邮件、Github、在任意平台讨论技术和代码的优秀准则。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://devillove084.github.io/img/og_image.png"><meta property="article:published_time" content="2026-01-11T15:56:47.000Z"><meta property="article:modified_time" content="2026-01-12T07:21:50.269Z"><meta property="article:author" content="devillove084"><meta property="article:tag" content="pg"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://devillove084.github.io/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://devillove084.github.io/2026/01/11/PG-1/"},"headline":"PostgreSQL 社区风格开发总结","image":["https://devillove084.github.io/img/og_image.png"],"datePublished":"2026-01-11T15:56:47.000Z","dateModified":"2026-01-12T07:21:50.269Z","author":{"@type":"Person","name":"devillove084"},"publisher":{"@type":"Organization","name":"Database builder","logo":{"@type":"ImageObject","url":"https://devillove084.github.io/images/ironman.svg"}},"description":"PostgreSQL 项目历经二十多年，其软件开发准则和要求以严格著称，本文的目的是为了介绍一些PG社区的开发hints。也算是初入PG社区的一些随笔，好的软件开发不仅包含代码礼仪，还应该包含优雅简洁的邮件&#x2F;交流礼仪。事实上，下面列出的一些礼仪不仅是在PG社区、也是其他开源社区应该学习和了解的典型范例，更是在科技行业使用邮件、Github、在任意平台讨论技术和代码的优秀准则。"}</script><link rel="canonical" href="https://devillove084.github.io/2026/01/11/PG-1/"><link rel="icon" href="/images/ironman.svg"><link rel="stylesheet" href="https://cdnjs.loli.net/ajax/libs/font-awesome/6.0.0/css/all.min.css"><link data-pjax rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"><link rel="stylesheet" href="https://fonts.loli.net/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css"><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2026-01-11T15:56:47.000Z" title="1/11/2026, 3:56:47 PM">2026-01-11</time>发表</span><span class="level-item"><time dateTime="2026-01-12T07:21:50.269Z" title="1/12/2026, 7:21:50 AM">2026-01-12</time>更新</span><span class="level-item">9 分钟读完 (大约1291个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">PostgreSQL 社区风格开发总结</h1><div class="content"><p>PostgreSQL 项目历经二十多年，其软件开发准则和要求以严格著称，本文的目的是为了介绍一些PG社区的开发hints。也算是初入PG社区的一些随笔，好的软件开发不仅包含代码礼仪，还应该包含优雅简洁的邮件&#x2F;交流礼仪。事实上，下面列出的一些礼仪不仅是在PG社区、也是其他开源社区应该学习和了解的典型范例，更是在科技行业使用邮件、Github、在任意平台讨论技术和代码的优秀准则。</p>
+<span id="more"></span>
+
+<ol>
+<li><p>先理解社区价值观：<br>PostgreSQL 代码库是 20+ 年积累、还要继续用很多年，因此对设计、兼容性、可维护性要求更严格；如果想要参与不要着急修改代码或者文档，并且也从简单改动开始、逐步积累贡献经验。</p>
+</li>
+<li><p>先达成共识：先接口&#x2F;行为，后实现细节，不要闭门造车，要先在社区层面把新行为定义清楚并获得认同。</p>
+</li>
+<li><p>接口层要想清楚：用户如何使用、语法是什么、语义&#x2F;行为精确定义、是否有向后兼容问题，并且要在这个粒度上先 buy-in。</p>
+</li>
+<li><p>再讨论实现：会改哪些子系统&#x2F;哪些 C 文件、与其它特性怎么交互、错误处理、是否涉及系统表、dump&#x2F;restore（必要时要修 pg_dump）、psql 是否需要改。</p>
+</li>
+<li><p>代码风格很重要：格式、命名、与上下文一致</p>
+<ul>
+<li>格式：4 空格缩进、BSD brace style，pgindent 是有帮助但并不万能，代码合入的关键之一是模仿周边代码风格。</li>
+<li>命名：可以 camel &#x2F; snake，但避免风格不统一；</li>
+<li>融入代码：不要用 #ifdef 把改动包起来；注释是为澄清而不是标记代码是谁的；不要在代码里署名。</li>
+</ul>
+</li>
+<li><p>注释与 C 语言规范<br>好命名能减少注释需求，但任何可能不清楚的地方要注释；用 ANSI C（C89）而不是 C99；不要 &#x2F;&#x2F;；变量声明放在代码块开头。</p>
+</li>
+<li><p>测试与文档是接受补丁的关键门槛</p>
+<ul>
+<li><p>测试：现有回归测试是否全过？行为改变是否是“有意的”？是否需要新增回归测试？initdb 是否正常？是否存在不可移植构造。</p>
+</li>
+<li><p>文档：新增命令&#x2F;选项要更新 reference pages；影响管理员要写到管理文档；新增函数要补函数文档；已有章节是否需要同步修改。</p>
+</li>
+</ul>
+</li>
+<li><p>沟通与协作：<br>初始邮件结构建议包含：高层总结、为什么要做（问题&#x2F;收益&#x2F;影响用户&#x2F;为什么现在）、为什么这样设计（区别于以往尝试&#x2F;设计解释&#x2F;为什么不用其它方案&#x2F;哪些部分没做）、以及 call to action（TODO、开放问题、还需要做什么、当前遇到的 failing &#x2F; issue）。</p>
+</li>
+</ol>
+<blockquote>
+<p>要有轻重缓急；尽量把相关老贡献者&#x2F;相关用户拉进来（CC）；参与同领域线程。</p>
+</blockquote>
+<ol start="9">
+<li><p>对 review 的响应方式：<br>回答 reviewer 的问题；发新版本时逐点 inline回应；风格问题保持灵活；同类问题要“一次性全改”；必要时可以另开新线程。</p>
+</li>
+<li><p>让代码跑起来：使用示例 + 基准测试（可复现）</p>
+</li>
+</ol>
+<ul>
+<li><p>基准测试目的：证明性能提升或至少没有回退。</p>
+</li>
+<li><p>基准测试原则：简单就好（\timing on 也可以）、优先 pgbench、避免 bash 脚本和附件、减少干扰变量、缩短运行时间、确保可复现。</p>
+</li>
+<li><p>报告应说明：准备步骤（prewarm&#x2F;restart&#x2F;initdb）、配置（GUC&#x2F;table options）、schema &amp; data、机器规格&#x2F;系统设置。</p>
+</li>
+<li><p>结果呈现：不要塞过多数据；TPS 不是唯一指标，也可以给 plan diff、perf 摘要、P99 latency、内存、进程 IO 等。</p>
+</li>
+</ul>
+<ol start="11">
+<li><p>测试：回归测试要“最小、快、稳”，必要时提供复现脚本<br>回归测试强调 minimal&#x2F;fast&#x2F;reliable，并涉及 core SQL suite 及其它套件；当加测试困难时，也可以用 debug-only 验证来增强信心并保护未来开发者。</p>
+</li>
+<li><p>让 patch 可提交：核心是拆分 commits<br>让每个 commit 都能工作；不要大杂烩&#x2F;巨型 commit；commit message 要解释每一行改动的目的；refactor 必须有动机；功能改动要一眼看出来；注释和 commit message 要把风险与需要采取的动作说清楚。</p>
+</li>
+<li><p>分离“形式 vs 功能”、单问题提交、别分散 reviewer 注意力；必要时先 rearrange 再 relocate；新 API 单独一个 commit。</p>
+</li>
+</ol>
+</div><div class="article-licensing box"><div class="licensing-title"><p>PostgreSQL 社区风格开发总结</p><p><a href="https://devillove084.github.io/2026/01/11/PG-1/">https://devillove084.github.io/2026/01/11/PG-1/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>devillove084</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2026-01-11</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2026-01-12</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/pg/">pg</a></div><div class="sharethis-inline-share-buttons"></div><script src="https://platform-api.sharethis.com/js/sharethis.js#property=65f6a62f301e18001359b8f1&amp;product=inline-share-buttons&amp;source=platform" defer></script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/images/alipay.jpg" alt="支付宝"></span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/images/wechat.jpg" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2026/01/12/SGlang-1/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">SGlang-KVCache 生命周期与PD分离传输分析</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/09/20/RDMA-2/"><span class="level-item">RDMA-Toy-1 PingPong和概念梳理</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/valine/1.4.16/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "qoeAcymwpY5SQb4ABehlBKLq-gzGzoHsz",
+            appKey: "Ei0kV5tVeRpYCcAnan39Oqpx",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><!--!--><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/images/ironman.svg" alt="Database builder" height="28"></a><p class="is-size-7"><span>&copy; 2026 devillove084</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Intro in github" href="https://github.com/devillove084"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" defer></script><script>moment.locale("zh-cn");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script data-pjax src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script data-pjax src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent/3.1.1/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/1.10.0/js/lightgallery.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.8.1/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/katex.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/auto-render.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.15.1/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script><div id="outdated"><h6>Your browser is out-of-date!</h6><p>Update your browser to view this website correctly.&amp;npsb;<a id="btnUpdateBrowser" target="_blank" rel="noopener" href="http://outdatedbrowser.com/">Update my browser now </a></p><p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">×</a></p></div><script src="https://cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js" defer></script><script>window.addEventListener("load", function () {
+            outdatedBrowser({
+                bgColor: '#f25648',
+                color: '#ffffff',
+                lowerThan: 'object-fit' // display on IE11 or below
+            });
+        });</script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><script src="https://cdn.jsdelivr.net/npm/mermaid@11.5.0/dist/mermaid.min.js"></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
